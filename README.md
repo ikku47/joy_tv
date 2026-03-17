@@ -6,7 +6,7 @@
 
 **Joy TV** is a premium, open-source IPTV application built with Flutter, designed to provide a cinematic viewing experience on both Android TV and mobile devices. With a focus on high performance, sleek UI, and seamless content integration, Joy TV brings your favorite live channels, movies, and series together in one beautiful interface.
 
-![Joy TV Hero Mockup](assets/joy_tv_hero_mockup.png)
+![Joy TV Hero Mockup](assets/joy-tv.png)
 
 ## ✨ Features
 
