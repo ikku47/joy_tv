@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/iptv_channel.dart';
 import '../../theme/app_theme.dart';
@@ -48,6 +49,16 @@ class _ChannelCardState extends State<ChannelCard> {
 
     return Focus(
       onFocusChange: (v) => setState(() => _focused = v),
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+             event.logicalKey == LogicalKeyboardKey.enter ||
+             event.logicalKey == LogicalKeyboardKey.space)) {
+          _navigate();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       child: GestureDetector(
         onTapDown:   (_) => setState(() => _pressed = true),
         onTapUp:     (_) { setState(() => _pressed = false); _navigate(); },
