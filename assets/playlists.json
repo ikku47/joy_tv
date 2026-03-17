@@ -1,0 +1,77 @@
+[
+  {
+    "id": "iptv-org",
+    "name": "IPTV-org (Default)",
+    "url": "https://iptv-org.github.io/iptv/index.m3u"
+  },
+  {
+    "id": "abusaeeidx",
+    "name": "Abusaeeidx (Alt)",
+    "url": "https://raw.githubusercontent.com/abusaeeidx/IPTV-Scraper-Zilla/main/combined-playlist.m3u"
+  },
+  {
+    "id": "worldiptv",
+    "name": "World IPTV (Alt)",
+    "url": "https://raw.githubusercontent.com/OleksiiKramarenko/IPTV-playlist-form-WORLD-IPTV/refs/heads/main/playlist.m3u"
+  },
+  {
+    "id": "devforge",
+    "name": "DevForge (Alt)",
+    "url": "https://iptv.devforge.qzz.io/playlist/all.m3u"
+  },
+  {
+    "id": "localnow",
+    "name": "LocalNow (Alt)",
+    "url": "https://www.apsattv.com/localnow.m3u"
+  },
+  {
+    "id": "freelivesports",
+    "name": "FreeLiveSports (Alt)",
+    "url": "https://www.apsattv.com/freelivesports.m3u"
+  },
+  {
+    "id": "sujon",
+    "name": "Sujon (Alt)",
+    "url": "https://raw.githubusercontent.com/DrSujonPaul/Sujon/6dc6a1d4eaa20a9239ae27d8e0f00182b60eeb47/iptv"
+  },
+  {
+    "id": "backup",
+    "name": "Backup (Alt)",
+    "url": "https://raw.githubusercontent.com/BuddyChewChew/My-Streams/refs/heads/main/Backup.m3u"
+  },
+  {
+    "id": "plex",
+    "name": "Plex (Alt)",
+    "url": "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plex_all.m3u"
+  },
+  {
+    "id": "pluto",
+    "name": "Pluto (Alt)",
+    "url": "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_all.m3u"
+  },
+  {
+    "id": "samsungtvplus",
+    "name": "Samsung TV Plus (Alt)",
+    "url": "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/refs/heads/main/playlists/samsungtvplus_all.m3u"
+  },
+  {
+    "id": "tubitv",
+    "name": "Tubi (Alt)",
+    "url": "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/refs/heads/main/playlists/tubi_all.m3u"
+  },
+  {
+    "id": "freetv",
+    "name": "Free TV (Alt)",
+    "url": "https://raw.githubusercontent.com/tenorioabsgit/IPTV/refs/heads/main/playlist.m3u"
+  },
+  {
+    "id": "ace",
+    "name": "Ace (Alt)",
+    "url": "https://raw.githubusercontent.com/dregs1/dregs1.github.io/f5422f13b8214f6373c0407f8651402cc6b937e1/xml/ace.m3u.xml"
+  },
+  {
+    "id": "desporto",
+    "name": "Desporto (Alt)",
+    "url": "https://raw.githubusercontent.com/dregs1/dregs1.github.io/f5422f13b8214f6373c0407f8651402cc6b937e1/xml/desporto.m3u"
+  }
+]
