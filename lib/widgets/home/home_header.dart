@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; 
 import '../../models/iptv_channel.dart';
 import '../../theme/app_theme.dart';
 
@@ -52,42 +53,79 @@ class HomeHeader extends StatelessWidget {
   }
 }
 
-class _SourcePill extends StatelessWidget {
+class _SourcePill extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
 
   const _SourcePill({required this.label, required this.onTap});
 
   @override
+  State<_SourcePill> createState() => _SourcePillState();
+}
+
+class _SourcePillState extends State<_SourcePill> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.07),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.playlist_play_rounded,
-                size: 16, color: AppTheme.primaryColor),
-            const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 110),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, color: Colors.white),
-              ),
+    return Focus(
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      onKey: (node, event) {
+        if (event.isKeyPressed(LogicalKeyboardKey.select) ||
+            event.isKeyPressed(LogicalKeyboardKey.enter) ||
+            event.isKeyPressed(LogicalKeyboardKey.space)) {
+          widget.onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: _focused
+                ? AppTheme.primaryColor.withOpacity(0.2)
+                : Colors.white.withOpacity(0.07),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _focused
+                  ? AppTheme.primaryColor.withOpacity(0.5)
+                  : Colors.white.withOpacity(0.1),
+              width: _focused ? 1.5 : 1,
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.keyboard_arrow_down_rounded,
-                size: 14, color: Colors.white.withOpacity(0.5)),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.playlist_play_rounded,
+                  size: 16,
+                  color: _focused ? AppTheme.primaryColor : AppTheme.primaryColor),
+              const SizedBox(width: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 110),
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: _focused ? FontWeight.w600 : FontWeight.w400,
+                    color: _focused
+                        ? AppTheme.primaryColor
+                        : Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: _focused
+                      ? AppTheme.primaryColor.withOpacity(0.8)
+                      : Colors.white.withOpacity(0.5)),
+            ],
+          ),
         ),
       ),
     );
