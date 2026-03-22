@@ -33,6 +33,14 @@ class _DiscoveryBodyState extends State<DiscoveryBody> {
     _loadData();
   }
 
+  @override
+  void didUpdateWidget(covariant DiscoveryBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.section != widget.section) {
+      _loadData();
+    }
+  }
+
   Future<void> _loadData() async {
     if (mounted) setState(() { _isLoading = true; _hasError = false; });
     try {

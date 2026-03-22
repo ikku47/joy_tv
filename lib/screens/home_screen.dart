@@ -234,6 +234,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ] else if (_selectedNavIndex == 1)
           Expanded(
             child: DiscoveryBody(
+              key: const ValueKey('discovery-movies'),
               isMobile: isMobile,
               hPad: hPad,
               section: "movies",
@@ -242,6 +243,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         else if (_selectedNavIndex == 2)
           Expanded(
             child: DiscoveryBody(
+              key: const ValueKey('discovery-series'),
               isMobile: isMobile,
               hPad: hPad,
               section: "series",
