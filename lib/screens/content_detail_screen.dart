@@ -11,11 +11,7 @@ class ContentDetailScreen extends StatefulWidget {
   final String contentId;
   final bool isMovie;
 
-  const ContentDetailScreen({
-    super.key,
-    required this.contentId,
-    required this.isMovie,
-  });
+  const ContentDetailScreen({super.key, required this.contentId, required this.isMovie});
 
   @override
   State<ContentDetailScreen> createState() => _ContentDetailScreenState();
@@ -38,7 +34,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   Future<void> _fetchDetails() async {
-    if (mounted) setState(() { _isLoading = true; _error = null; });
+    if (mounted)
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
     try {
       if (widget.isMovie) {
         _movie = await _service.getMovieDetails(widget.contentId);
@@ -51,46 +51,61 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       }
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      if (mounted) setState(() { _isLoading = false; _error = e.toString(); });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+          _error = e.toString();
+        });
     }
   }
 
   Future<void> _selectSeason(StreamSeason season) async {
     if (_selectedSeason?.id == season.id) return;
-    setState(() { _selectedSeason = season; _episodes = null; _loadingEpisodes = true; });
+    setState(() {
+      _selectedSeason = season;
+      _episodes = null;
+      _loadingEpisodes = true;
+    });
     final eps = await _service.getEpisodes(season.id);
-    if (mounted) setState(() { _episodes = eps; _loadingEpisodes = false; });
+    if (mounted)
+      setState(() {
+        _episodes = eps;
+        _loadingEpisodes = false;
+      });
   }
 
   void _playMovie() {
     if (_movie == null) return;
-    Navigator.push(context, _pageRoute(StreamPlayerScreen(
-      contentId: _movie!.id,
-      tvShowId: _movie!.id,
-      type: 'movie',
-      title: _movie!.title,
-    )));
+    Navigator.push(
+      context,
+      _pageRoute(StreamPlayerScreen(contentId: _movie!.id, tvShowId: _movie!.id, type: 'movie', title: _movie!.title)),
+    );
   }
 
   void _playEpisode(StreamEpisode ep) {
     if (_tvShow == null || _selectedSeason == null) return;
-    Navigator.push(context, _pageRoute(StreamPlayerScreen(
-      contentId: ep.id,
-      tvShowId: _tvShow!.id,
-      type: 'episode',
-      seasonNumber: _selectedSeason!.number,
-      episodeNumber: ep.number,
-      title: '${_tvShow!.title} — S${_selectedSeason!.number}E${ep.number}: ${ep.title}',
-      allEpisodes: _episodes,
-      initialEpisodeIndex: _episodes?.indexOf(ep) ?? 0,
-      allSeasons: _tvShow!.seasons,
-      tvShowTitle: _tvShow!.title,
-    )));
+    Navigator.push(
+      context,
+      _pageRoute(
+        StreamPlayerScreen(
+          contentId: ep.id,
+          tvShowId: _tvShow!.id,
+          type: 'episode',
+          seasonNumber: _selectedSeason!.number,
+          episodeNumber: ep.number,
+          title: '${_tvShow!.title} — S${_selectedSeason!.number}E${ep.number}: ${ep.title}',
+          allEpisodes: _episodes,
+          initialEpisodeIndex: _episodes?.indexOf(ep) ?? 0,
+          allSeasons: _tvShow!.seasons,
+          tvShowTitle: _tvShow!.title,
+        ),
+      ),
+    );
   }
 
   PageRoute _pageRoute(Widget screen) => PageRouteBuilder(
-    pageBuilder: (_, __, ___) => screen,
-    transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+    pageBuilder: (_, _, _) => screen,
+    transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
     transitionDuration: const Duration(milliseconds: 300),
   );
 
@@ -140,16 +155,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    banner ?? poster!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox(),
-                  ),
+                  Image.network(banner ?? poster!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox()),
                   BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                    child: Container(
-                      color: const Color(0xFF0D0D1A).withOpacity(0.82),
-                    ),
+                    child: Container(color: const Color(0xFF0D0D1A).withOpacity(0.82)),
                   ),
                 ],
               ),
@@ -166,7 +175,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                       height: 340,
                       width: double.infinity,
                       child: banner != null
-                          ? Image.network(banner, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox())
+                          ? Image.network(banner, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox())
                           : const SizedBox(),
                     ),
                     Container(
@@ -221,7 +230,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                 width: 110,
                                 height: 165,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const SizedBox(),
+                                errorBuilder: (_, _, _) => const SizedBox(),
                               ),
                             ),
                           const SizedBox(width: 16),
@@ -243,10 +252,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                   spacing: 10,
                                   children: [
                                     if (released.releaseYear != null)
-                                      _MetaBadge(
-                                        icon: Icons.calendar_today_outlined,
-                                        label: released.releaseYear!,
-                                      ),
+                                      _MetaBadge(icon: Icons.calendar_today_outlined, label: released.releaseYear!),
                                     if (rating != null)
                                       _MetaBadge(
                                         icon: Icons.star_rounded,
@@ -254,15 +260,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                         iconColor: Colors.amber,
                                       ),
                                     if (_movie?.runtime != null)
-                                      _MetaBadge(
-                                        icon: Icons.timer_outlined,
-                                        label: '${_movie!.runtime} min',
-                                      ),
+                                      _MetaBadge(icon: Icons.timer_outlined, label: '${_movie!.runtime} min'),
                                   ],
                                 ),
                                 const SizedBox(height: 12),
-                                if (widget.isMovie)
-                                  _WatchNowButton(onTap: _playMovie),
+                                if (widget.isMovie) _WatchNowButton(onTap: _playMovie),
                               ],
                             ),
                           ),
@@ -276,11 +278,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                         const SizedBox(height: 8),
                         Text(
                           overview,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.75),
-                            fontSize: 14,
-                            height: 1.6,
-                          ),
+                          style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 14, height: 1.6),
                         ),
                         const SizedBox(height: 28),
                       ],
@@ -301,10 +299,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                             child: Center(child: LoadingIndicator()),
                           )
                         else if (_episodes != null && _episodes!.isNotEmpty)
-                          _EpisodeListWidget(
-                            episodes: _episodes!,
-                            onTap: _playEpisode,
-                          )
+                          _EpisodeListWidget(episodes: _episodes!, onTap: _playEpisode)
                         else
                           const Center(
                             child: Padding(
@@ -365,12 +360,7 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(
-      fontSize: 18,
-      fontWeight: FontWeight.w700,
-      color: Colors.white,
-      letterSpacing: 0.2,
-    ),
+    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.2),
   );
 }
 
@@ -415,8 +405,7 @@ class _WatchNowButtonState extends State<_WatchNowButton> {
       onFocusChange: (v) => setState(() => _focused = v),
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+            (event.logicalKey == LogicalKeyboardKey.select || event.logicalKey == LogicalKeyboardKey.enter)) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -430,9 +419,9 @@ class _WatchNowButtonState extends State<_WatchNowButton> {
           decoration: BoxDecoration(
             color: _focused ? Colors.white : Colors.blueAccent,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: _focused ? [
-              BoxShadow(color: Colors.blueAccent.withOpacity(0.5), blurRadius: 12, spreadRadius: 2)
-            ] : [],
+            boxShadow: _focused
+                ? [BoxShadow(color: Colors.blueAccent.withOpacity(0.5), blurRadius: 12, spreadRadius: 2)]
+                : [],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -483,10 +472,7 @@ class _SeasonBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.blueAccent : Colors.white.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? Colors.blueAccent : Colors.white24,
-                    width: 1,
-                  ),
+                  border: Border.all(color: isSelected ? Colors.blueAccent : Colors.white24, width: 1),
                 ),
                 child: Text(
                   s.title ?? 'Season ${s.number}',
@@ -537,8 +523,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       onFocusChange: (v) => setState(() => _focused = v),
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+            (event.logicalKey == LogicalKeyboardKey.select || event.logicalKey == LogicalKeyboardKey.enter)) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -553,10 +538,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
           decoration: BoxDecoration(
             color: _focused ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.05),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: _focused ? Colors.blueAccent : Colors.transparent,
-              width: 1.5,
-            ),
+            border: Border.all(color: _focused ? Colors.blueAccent : Colors.transparent, width: 1.5),
           ),
           child: Row(
             children: [
@@ -568,8 +550,11 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                   height: 58,
                   color: const Color(0xFF1A1A2E),
                   child: widget.episode.poster != null
-                      ? Image.network(widget.episode.poster!, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.play_circle_outline, color: Colors.grey))
+                      ? Image.network(
+                          widget.episode.poster!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Icon(Icons.play_circle_outline, color: Colors.grey),
+                        )
                       : const Center(child: Icon(Icons.play_circle_outline, color: Colors.grey)),
                 ),
               ),
@@ -594,11 +579,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.play_circle_filled_rounded,
-                color: _focused ? Colors.blueAccent : Colors.white38,
-                size: 28,
-              ),
+              Icon(Icons.play_circle_filled_rounded, color: _focused ? Colors.blueAccent : Colors.white38, size: 28),
             ],
           ),
         ),
@@ -657,10 +638,7 @@ class _RecCardState extends State<_RecCard> {
         onTap: () => Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => ContentDetailScreen(
-              contentId: widget.item.id,
-              isMovie: widget.item is StreamMovie,
-            ),
+            builder: (_) => ContentDetailScreen(contentId: widget.item.id, isMovie: widget.item is StreamMovie),
           ),
         ),
         child: AnimatedContainer(
@@ -669,21 +647,27 @@ class _RecCardState extends State<_RecCard> {
           margin: const EdgeInsets.only(right: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: _focused ? Colors.blueAccent : Colors.transparent,
-              width: 2,
-            ),
+            border: Border.all(color: _focused ? Colors.blueAccent : Colors.transparent, width: 2),
             boxShadow: _focused ? [BoxShadow(color: Colors.blueAccent.withOpacity(0.4), blurRadius: 10)] : [],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(8),
             child: widget.item.poster != null
-                ? Image.network(widget.item.poster!, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1A1A2E)))
-                : Container(color: const Color(0xFF1A1A2E), child: Center(
-                    child: Text(widget.item.title, textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white60, fontSize: 10)),
-                  )),
+                ? Image.network(
+                    widget.item.poster!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(color: const Color(0xFF1A1A2E)),
+                  )
+                : Container(
+                    color: const Color(0xFF1A1A2E),
+                    child: Center(
+                      child: Text(
+                        widget.item.title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white60, fontSize: 10),
+                      ),
+                    ),
+                  ),
           ),
         ),
       ),
