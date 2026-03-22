@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dpad/dpad.dart';
 import '../../theme/app_theme.dart';
 
 class LiveBadge extends StatelessWidget {
@@ -51,18 +52,34 @@ class OSDIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withOpacity(0.12)),
-        ),
-        child: Icon(icon, size: 18, color: Colors.white.withOpacity(0.85)),
-      ),
+    return DpadFocusable(
+      onSelect: onTap,
+      builder: (context, isFocused, child) {
+        return GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: isFocused 
+                  ? AppTheme.primaryColor.withOpacity(0.2) 
+                  : Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isFocused 
+                    ? AppTheme.primaryColor.withOpacity(0.5) 
+                    : Colors.white.withOpacity(0.12),
+              ),
+            ),
+            child: Icon(
+              icon, 
+              size: 18, 
+              color: isFocused ? AppTheme.primaryColor : Colors.white.withOpacity(0.85),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -86,24 +103,40 @@ class _NavButtonState extends State<NavButton> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(_pressed ? 0.2 : 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.15)),
+    return DpadFocusable(
+      onSelect: widget.onTap,
+      builder: (context, isFocused, child) {
+        return GestureDetector(
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+          onTapCancel: () => setState(() => _pressed = false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.92 : (isFocused ? 1.08 : 1.0),
+            duration: const Duration(milliseconds: 120),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isFocused 
+                    ? AppTheme.primaryColor.withOpacity(0.2) 
+                    : Colors.white.withOpacity(_pressed ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isFocused 
+                      ? AppTheme.primaryColor.withOpacity(0.5) 
+                      : Colors.white.withOpacity(0.15),
+                ),
+              ),
+              child: Icon(
+                widget.icon, 
+                size: 22, 
+                color: isFocused ? AppTheme.primaryColor : Colors.white,
+              ),
+            ),
           ),
-          child: Icon(widget.icon, size: 22, color: Colors.white),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/iptv_channel.dart';
 import '../services/playlist_cache_service.dart';
+import 'package:android_tv_text_field/native_textfield_tv.dart';
+
 import '../theme/app_theme.dart';
 import '../widgets/home/home_sidebar.dart';
 import '../widgets/home/home_header.dart';
@@ -25,7 +27,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   final PlaylistCacheService _cacheService = PlaylistCacheService();
-  final TextEditingController _searchController = TextEditingController();
+  final NativeTextFieldController _searchController = NativeTextFieldController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 

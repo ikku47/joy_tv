@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dpad/dpad.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -12,11 +13,14 @@ class JoyTVApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Joy TV',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: const HomeScreen(),
+    return DpadNavigator(
+      enabled: true,
+      child: MaterialApp(
+        title: 'Joy TV',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.darkTheme,
+        home: const HomeScreen(),
+      ),
     );
   }
 }

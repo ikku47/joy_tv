@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
 import '../../theme/app_theme.dart';
+import 'package:dpad/dpad.dart';
 
 class HomeNavItem {
   final IconData icon;
@@ -60,7 +60,7 @@ class HomeSidebar extends StatelessWidget {
   }
 }
 
-class _SidebarButton extends StatefulWidget {
+class _SidebarButton extends StatelessWidget {
   final IconData icon;
   final bool selected;
   final String tooltip;
@@ -74,42 +74,24 @@ class _SidebarButton extends StatefulWidget {
   });
 
   @override
-  State<_SidebarButton> createState() => _SidebarButtonState();
-}
-
-class _SidebarButtonState extends State<_SidebarButton> {
-  bool _focused = false;
-
-  @override
   Widget build(BuildContext context) {
-    return Focus(
-      onFocusChange: (focused) => setState(() => _focused = focused),
-      onKey: (node, event) {
-        if (event.isKeyPressed(LogicalKeyboardKey.select) ||
-            event.isKeyPressed(LogicalKeyboardKey.enter) ||
-            event.isKeyPressed(LogicalKeyboardKey.space)) {
-          widget.onTap();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Tooltip(
-        message: widget.tooltip,
-        preferBelow: false,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
+    return DpadFocusable(
+      onSelect: onTap,
+      builder: (context, isFocused, child) {
+        return Tooltip(
+          message: tooltip,
+          preferBelow: false,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             width: double.infinity,
             height: 48,
             margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
-              color: _focused || widget.selected
+              color: isFocused || selected
                   ? AppTheme.primaryColor.withOpacity(0.15)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
-              border: _focused
+              border: isFocused
                   ? Border.all(
                       color: AppTheme.primaryColor.withOpacity(0.6),
                       width: 1.5,
@@ -117,15 +99,15 @@ class _SidebarButtonState extends State<_SidebarButton> {
                   : null,
             ),
             child: Icon(
-              widget.icon,
+              icon,
               size: 22,
-              color: _focused || widget.selected
+              color: isFocused || selected
                   ? AppTheme.primaryColor
                   : Colors.white.withOpacity(0.45),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
