@@ -5,25 +5,7 @@ import '../models/streamengine/stream_models.dart';
 import '../services/streamengine_service.dart';
 import '../widgets/common/status_widgets.dart';
 import '../screens/stream_player_screen.dart';
-import 'package:intl/intl.dart';
-
-String _formatYear(String? dateStr) {
-  if (dateStr == null || dateStr.isEmpty) return 'N/A';
-  try {
-    return DateTime.parse(dateStr).year.toString();
-  } catch (_) {
-    return dateStr.split('-').first;
-  }
-}
-
-String _formatFullDate(String? dateStr) {
-  if (dateStr == null || dateStr.isEmpty) return 'Unknown Date';
-  try {
-    return DateFormat('MMM d, yyyy').format(DateTime.parse(dateStr));
-  } catch (_) {
-    return dateStr;
-  }
-}
+import '../utils/extensions.dart';
 
 class ContentDetailScreen extends StatefulWidget {
   final String contentId;
@@ -260,10 +242,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                 Wrap(
                                   spacing: 10,
                                   children: [
-                                    if (released != null && released.isNotEmpty && _formatYear(released) != 'N/A')
+                                    if (released.releaseYear != null)
                                       _MetaBadge(
                                         icon: Icons.calendar_today_outlined,
-                                        label: _formatYear(released),
+                                        label: released.releaseYear!,
                                       ),
                                     if (rating != null)
                                       _MetaBadge(
@@ -604,7 +586,10 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                     ),
                     if (widget.episode.released != null && widget.episode.released!.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text(_formatFullDate(widget.episode.released), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(
+                        widget.episode.released.asFullDate(),
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
                     ],
                   ],
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/streamengine_service.dart';
 import '../../models/streamengine/stream_models.dart';
+import '../../utils/extensions.dart';
 import '../../widgets/common/status_widgets.dart';
 import '../../screens/content_detail_screen.dart';
 
@@ -189,6 +190,8 @@ class _StreamCardState extends State<_StreamCard> with SingleTickerProviderState
 
   @override
   Widget build(BuildContext context) {
+    final year = widget.item.released.releaseYear;
+
     return Focus(
       onFocusChange: _handleFocus,
       onKeyEvent: (node, event) {
@@ -265,11 +268,30 @@ class _StreamCardState extends State<_StreamCard> with SingleTickerProviderState
                         colors: [Colors.black.withOpacity(0.85), Colors.transparent],
                       ),
                     ),
-                    child: Text(
-                      widget.item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                        if (year != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            year,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),

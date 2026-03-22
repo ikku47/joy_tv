@@ -1,33 +1,31 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import '../models/streamengine/stream_models.dart';
+import '../utils/log_util.dart';
 
 class StreamEngineService {
   static const _channel = MethodChannel('com.example.joy_tv.stream_engine');
-  
+
+  String? _asJsonString(dynamic res) {
+    if (res is String) return res;
+    if (res is Map || res is List) return jsonEncode(res);
+    return res?.toString();
+  }
+
   Future<List<StreamCategory>> getHome({String? language, String? section}) async {
     try {
       final res = await _channel.invokeMethod('get_home', {
         'language': language,
         'section': section,
       });
-      print('StreamEngine getHome result type: ${res.runtimeType}');
-      
-      String? jsonString;
-      if (res is String) {
-        jsonString = res;
-      } else if (res is Map || res is List) {
-        jsonString = jsonEncode(res);
-      } else {
-        jsonString = res?.toString();
-      }
 
+      final jsonString = _asJsonString(res);
       if (jsonString == null) return [];
-      print('StreamEngine JSON Start: ${jsonString.substring(0, 500.clamp(0, jsonString.length))}');
+      logJson('get_home', jsonString, tag: 'StreamEngine');
       final List list = jsonDecode(jsonString);
       return list.map((c) => StreamCategory.fromJson(c)).toList();
-    } catch (e) {
-      print('StreamEngine ERROR: $e');
+    } catch (e, st) {
+      logE('get_home failed', tag: 'StreamEngine', error: e, stackTrace: st);
       return [];
     }
   }
@@ -40,20 +38,13 @@ class StreamEngineService {
         'page': page,
       });
 
-      String? jsonString;
-      if (res is String) {
-        jsonString = res;
-      } else if (res is Map || res is List) {
-        jsonString = jsonEncode(res);
-      } else {
-        jsonString = res?.toString();
-      }
-
+      final jsonString = _asJsonString(res);
       if (jsonString == null) return [];
+      logJson('search', jsonString, tag: 'StreamEngine');
       final List list = jsonDecode(jsonString);
       return list.map((i) => StreamItem.fromJson(i)).toList();
-    } catch (e) {
-      print('StreamEngine SEARCH ERROR: $e');
+    } catch (e, st) {
+      logE('search failed', tag: 'StreamEngine', error: e, stackTrace: st);
       return [];
     }
   }
@@ -64,20 +55,13 @@ class StreamEngineService {
         'id': id,
         'language': language,
       });
-      
-      String? jsonString;
-      if (res is String) {
-        jsonString = res;
-      } else if (res is Map || res is List) {
-        jsonString = jsonEncode(res);
-      } else {
-        jsonString = res?.toString();
-      }
 
+      final jsonString = _asJsonString(res);
       if (jsonString == null) return null;
+      logJson('get_movie_details', jsonString, tag: 'StreamEngine');
       return StreamMovie.fromJson(jsonDecode(jsonString));
-    } catch (e) {
-      print('StreamEngine MOVIE ERROR: $e');
+    } catch (e, st) {
+      logE('get_movie_details failed', tag: 'StreamEngine', error: e, stackTrace: st);
       return null;
     }
   }
@@ -89,19 +73,12 @@ class StreamEngineService {
         'language': language,
       });
 
-      String? jsonString;
-      if (res is String) {
-        jsonString = res;
-      } else if (res is Map || res is List) {
-        jsonString = jsonEncode(res);
-      } else {
-        jsonString = res?.toString();
-      }
-
+      final jsonString = _asJsonString(res);
       if (jsonString == null) return null;
+      logJson('get_tv_show_details', jsonString, tag: 'StreamEngine');
       return StreamTvShow.fromJson(jsonDecode(jsonString));
-    } catch (e) {
-      print('StreamEngine TV ERROR: $e');
+    } catch (e, st) {
+      logE('get_tv_show_details failed', tag: 'StreamEngine', error: e, stackTrace: st);
       return null;
     }
   }
@@ -113,20 +90,13 @@ class StreamEngineService {
         'language': language,
       });
 
-      String? jsonString;
-      if (res is String) {
-        jsonString = res;
-      } else if (res is Map || res is List) {
-        jsonString = jsonEncode(res);
-      } else {
-        jsonString = res?.toString();
-      }
-
+      final jsonString = _asJsonString(res);
       if (jsonString == null) return [];
+      logJson('get_episodes', jsonString, tag: 'StreamEngine');
       final List list = jsonDecode(jsonString);
       return list.map((e) => StreamEpisode.fromJson(e)).toList();
-    } catch (e) {
-      print('StreamEngine EPISODES ERROR: $e');
+    } catch (e, st) {
+      logE('get_episodes failed', tag: 'StreamEngine', error: e, stackTrace: st);
       return [];
     }
   }
@@ -155,20 +125,13 @@ class StreamEngineService {
       }
       final res = await _channel.invokeMethod('get_servers', args);
 
-      String? jsonString;
-      if (res is String) {
-        jsonString = res;
-      } else if (res is Map || res is List) {
-        jsonString = jsonEncode(res);
-      } else {
-        jsonString = res?.toString();
-      }
-
+      final jsonString = _asJsonString(res);
       if (jsonString == null) return [];
+      logJson('get_servers', jsonString, tag: 'StreamEngine');
       final List list = jsonDecode(jsonString);
       return list.map((s) => VideoServer.fromJson(s)).toList();
-    } catch (e) {
-      print('StreamEngine SERVERS ERROR: $e');
+    } catch (e, st) {
+      logE('get_servers failed', tag: 'StreamEngine', error: e, stackTrace: st);
       return [];
     }
   }
@@ -180,19 +143,12 @@ class StreamEngineService {
         'language': language,
       });
 
-      String? jsonString;
-      if (res is String) {
-        jsonString = res;
-      } else if (res is Map || res is List) {
-        jsonString = jsonEncode(res);
-      } else {
-        jsonString = res?.toString();
-      }
-
+      final jsonString = _asJsonString(res);
       if (jsonString == null) return null;
+      logJson('extract_video', jsonString, tag: 'StreamEngine');
       return VideoSource.fromJson(jsonDecode(jsonString));
-    } catch (e) {
-      print('StreamEngine EXTRACTION ERROR: $e');
+    } catch (e, st) {
+      logE('extract_video failed', tag: 'StreamEngine', error: e, stackTrace: st);
       return null;
     }
   }

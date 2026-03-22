@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'dart:developer' as dev;
 
 import '../models/iptv_channel.dart';
 import 'm3u_parser.dart';
+import '../utils/log_util.dart';
 
 class PlaylistCacheService {
   final DefaultCacheManager _cacheManager = DefaultCacheManager();
@@ -16,7 +16,7 @@ class PlaylistCacheService {
       final data = await json.decode(response) as List;
       return data.map((e) => IPTVPlaylistSource.fromJson(e)).toList();
     } catch (e) {
-      dev.log("Error loading sources: $e");
+      logE('Error loading sources', tag: 'PlaylistCache', error: e);
       return [];
     }
   }
@@ -26,12 +26,12 @@ class PlaylistCacheService {
       final fileInfo = await _cacheManager.getFileFromCache(source.id);
       
       if (fileInfo != null && fileInfo.validTill.isAfter(DateTime.now())) {
-        dev.log("Loading ${source.name} from cache");
+        logD('Loading ${source.name} from cache', tag: 'PlaylistCache');
         final content = await fileInfo.file.readAsString();
         return M3UParser.parse(content);
       }
 
-      dev.log("Fetching ${source.name} from network");
+      logD('Fetching ${source.name} from network', tag: 'PlaylistCache');
       final response = await http.get(Uri.parse(source.url));
       
       if (response.statusCode == 200) {
@@ -44,11 +44,15 @@ class PlaylistCacheService {
         );
         return M3UParser.parse(response.body);
       } else {
-        dev.log("Failed to fetch playlist: ${response.statusCode}");
+        logW('Failed to fetch playlist: ${response.statusCode}', tag: 'PlaylistCache');
         return [];
       }
     } catch (e) {
-      dev.log("Error fetching playlist ${source.name}: $e");
+      logE(
+        'Error fetching playlist ${source.name}',
+        tag: 'PlaylistCache',
+        error: e,
+      );
       return [];
     }
   }

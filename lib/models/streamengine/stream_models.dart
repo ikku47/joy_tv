@@ -1,5 +1,30 @@
 import 'dart:convert';
 
+String? _normalizeReleased(dynamic raw) {
+  if (raw == null) return null;
+
+  if (raw is String) {
+    final value = raw.trim();
+    return value.isEmpty ? null : value;
+  }
+
+  if (raw is Map) {
+    final year = int.tryParse(raw['year']?.toString() ?? '');
+    final rawMonth = int.tryParse(raw['month']?.toString() ?? '');
+    final day = int.tryParse(raw['dayOfMonth']?.toString() ?? '') ?? 1;
+
+    if (year != null && rawMonth != null) {
+      // Kotlin Calendar month is usually 0-based in this payload.
+      final month = (rawMonth >= 0 && rawMonth <= 11) ? rawMonth + 1 : rawMonth;
+      final mm = month.toString().padLeft(2, '0');
+      final dd = day.toString().padLeft(2, '0');
+      return '$year-$mm-$dd';
+    }
+  }
+
+  return raw.toString();
+}
+
 class StreamCategory {
   final String name;
   final List<StreamItem> items;
@@ -74,7 +99,7 @@ class StreamMovie implements StreamItem {
       poster: json['poster']?.toString(),
       banner: json['banner']?.toString(),
       rating: (json['rating'] as num?)?.toDouble(),
-      released: json['released']?.toString(),
+      released: _normalizeReleased(json['released']),
       runtime: json['runtime'] is int ? json['runtime'] : null,
       trailer: json['trailer']?.toString(),
       cast: (json['cast'] as List?)?.map((p) => StreamPeople.fromJson(p)).toList(),
@@ -123,7 +148,7 @@ class StreamTvShow implements StreamItem {
       poster: json['poster']?.toString(),
       banner: json['banner']?.toString(),
       rating: (json['rating'] as num?)?.toDouble(),
-      released: json['released']?.toString(),
+      released: _normalizeReleased(json['released']),
       seasons: seasonsList?.map((s) => StreamSeason.fromJson(s)).toList(),
       cast: (json['cast'] as List?)?.map((p) => StreamPeople.fromJson(p)).toList(),
       recommendations: (json['recommendations'] as List?)?.map((i) => StreamItem.fromJson(i)).toList(),
@@ -184,7 +209,7 @@ class StreamEpisode {
       number: json['number'] ?? 0,
       title: json['title']?.toString() ?? '',
       overview: json['overview']?.toString(),
-      released: json['released']?.toString(),
+      released: _normalizeReleased(json['released']),
       poster: json['poster']?.toString(),
     );
   }
