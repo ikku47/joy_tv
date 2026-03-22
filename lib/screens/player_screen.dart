@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 import '../models/iptv_channel.dart';
+import '../services/device_profile_service.dart';
+import '../utils/log_util.dart';
+import '../utils/orientation_policy.dart';
 import '../widgets/player/buffering_indicator.dart';
 import '../widgets/player/error_overlay.dart';
 import '../widgets/player/player_osd.dart';
@@ -51,6 +54,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   // Channel list panel
   bool _showChannelList = false;
   final ScrollController _listScrollController = ScrollController();
+  bool _isHandheldDevice = true;
+  bool _orientationProfileApplied = false;
 
   @override
   void initState() {
@@ -76,23 +81,32 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
-    if (isMobile) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
+    if (_orientationProfileApplied) return;
+    _orientationProfileApplied = true;
+    _configureOrientationProfile();
+  }
+
+  Future<void> _configureOrientationProfile() async {
+    final fallbackHandheld = OrientationPolicy.isHandheld(context);
+    _isHandheldDevice = fallbackHandheld;
+
+    final isTv = await DeviceProfileService.isTvDevice();
+    if (!mounted) return;
+    _isHandheldDevice = isTv ? false : fallbackHandheld;
+
+    logI(
+      'PlayerScreen profile: isTv=$isTv fallbackHandheld=$fallbackHandheld finalHandheld=$_isHandheldDevice',
+      tag: 'Orientation',
+    );
+    OrientationPolicy.enterPlayback(source: 'PlayerScreen');
   }
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    OrientationPolicy.restoreAfterPlayback(
+      isHandheldDevice: _isHandheldDevice,
+      source: 'PlayerScreen',
+    );
     _playerController.dispose();
     _overlayTimer?.cancel();
     _clockTimer.cancel();

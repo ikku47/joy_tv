@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/streamengine/stream_models.dart';
+import '../services/device_profile_service.dart';
 import '../services/streamengine_service.dart';
+import '../utils/log_util.dart';
+import '../utils/orientation_policy.dart';
 import '../widgets/common/status_widgets.dart';
 
 class StreamPlayerScreen extends StatefulWidget {
@@ -42,6 +45,8 @@ class StreamPlayerScreen extends StatefulWidget {
 class _StreamPlayerScreenState extends State<StreamPlayerScreen> {
   final StreamEngineService _service = StreamEngineService();
   BetterPlayerController? _playerController;
+  bool _isHandheldDevice = true;
+  bool _orientationProfileApplied = false;
 
   List<VideoServer>? _servers;
   VideoServer? _currentServer;
@@ -79,14 +84,39 @@ class _StreamPlayerScreenState extends State<StreamPlayerScreen> {
           .firstWhere((s) => s.number == widget.seasonNumber, orElse: () => widget.allSeasons!.first);
     }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
     _fetchServers();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_orientationProfileApplied) return;
+    _orientationProfileApplied = true;
+    _configureOrientationProfile();
+  }
+
+  Future<void> _configureOrientationProfile() async {
+    final fallbackHandheld = OrientationPolicy.isHandheld(context);
+    _isHandheldDevice = fallbackHandheld;
+
+    final isTv = await DeviceProfileService.isTvDevice();
+    if (!mounted) return;
+    _isHandheldDevice = isTv ? false : fallbackHandheld;
+
+    logI(
+      'StreamPlayerScreen profile: isTv=$isTv fallbackHandheld=$fallbackHandheld finalHandheld=$_isHandheldDevice',
+      tag: 'Orientation',
+    );
+    OrientationPolicy.enterPlayback(source: 'StreamPlayerScreen');
   }
 
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    OrientationPolicy.restoreAfterPlayback(
+      isHandheldDevice: _isHandheldDevice,
+      source: 'StreamPlayerScreen',
+    );
     _playerController?.dispose();
     super.dispose();
   }
