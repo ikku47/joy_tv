@@ -1,6 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+
 import '../models/iptv_channel.dart';
 import '../services/playlist_cache_service.dart';
+import '../services/playlist_merge_service.dart';
+import 'playlist_sync_screen.dart';
 import 'package:android_tv_text_field/native_textfield_tv.dart';
 
 import '../theme/app_theme.dart';
@@ -11,6 +15,7 @@ import '../widgets/home/channel_grid.dart';
 import '../widgets/home/bottom_bar_button.dart';
 import '../widgets/home/playlist_picker_sheet.dart';
 import '../widgets/common/status_widgets.dart';
+import '../widgets/home/category_list.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -27,6 +32,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   final PlaylistCacheService _cacheService = PlaylistCacheService();
+  final PlaylistMergeService _mergeService = PlaylistMergeService();
   final NativeTextFieldController _searchController = NativeTextFieldController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
@@ -34,12 +40,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   List<IPTVPlaylistSource> _sources = [];
   List<IPTVChannel> _channels = [];
   List<IPTVChannel> _filteredChannels = [];
+  List<String> _categories = [];
 
   bool _isLoading = true;
   bool _isSearchFocused = false;
+  String _selectedCategory = 'All';
   String? _selectedSourceId;
   int _selectedNavIndex = 0;
   String _searchQuery = '';
+  Timer? _searchDebounce;
+
+  static final _unifiedSource = IPTVPlaylistSource(
+    id: 'unified',
+    name: 'My Unified Playlist (Verified)',
+    url: '', 
+  );
 
   // Nav items shared across sidebar / bottom bar
   static const _navItems = [
@@ -55,6 +70,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.initState();
     _loadInitialData();
     _searchFocusNode.addListener(_onSearchFocusChange);
+    
+    // Using a listener on the controller is more reliable for Android TV native text fields
+    _searchController.addListener(() {
+      final String currentQuery = _searchController.text.toLowerCase().trim();
+      if (_searchQuery != currentQuery) {
+        _searchDebounce?.cancel();
+        _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            setState(() {
+              _searchQuery = currentQuery;
+              _filterChannels();
+            });
+          }
+        });
+      }
+    });
   }
 
   void _onSearchFocusChange() {
@@ -66,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode
       ..removeListener(_onSearchFocusChange)
@@ -74,39 +106,95 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
+
   // ── Data ───────────────────────────────────────────────────────────────────
 
   void _filterChannels() {
-    if (_searchQuery.isEmpty) {
-      _filteredChannels = _channels;
-    } else {
-      _filteredChannels = _channels.where((ch) {
-        return ch.name.toLowerCase().contains(_searchQuery) ||
-            (ch.group?.toLowerCase().contains(_searchQuery) ?? false);
-      }).toList();
+    // Filter from the full source list
+    Iterable<IPTVChannel> filtered = _channels;
+
+    // 1. Category filter
+    if (_selectedCategory != 'All') {
+      filtered = filtered.where((ch) {
+        final group = ch.group?.trim();
+        final effectiveGroup = (group != null && group.isNotEmpty) ? group : 'Uncategorized';
+        return effectiveGroup == _selectedCategory;
+      });
     }
+
+    // 2. Search query filter
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((ch) {
+        // Search in name and group
+        final nameMatch = ch.name.toLowerCase().contains(_searchQuery);
+        final groupMatch = ch.group?.toLowerCase().contains(_searchQuery) ?? false;
+        return nameMatch || groupMatch;
+      });
+    }
+
+    _filteredChannels = filtered.toList();
   }
+
 
   Future<void> _loadInitialData() async {
     final sources = await _cacheService.getSources();
+    final hasUnified = await _mergeService.hasLocalPlaylist();
+    
     if (!mounted) return;
     setState(() {
-      _sources = sources;
-      if (sources.isNotEmpty) _selectedSourceId = sources.first.id;
+      _sources = hasUnified ? [_unifiedSource, ...sources] : sources;
+      if (_sources.isNotEmpty) _selectedSourceId = _sources.first.id;
     });
-    if (sources.isNotEmpty) await _loadChannels(sources.first);
+    
+    if (_sources.isNotEmpty) {
+      if (hasUnified) {
+        await _loadChannels(_unifiedSource);
+      } else {
+        await _loadChannels(_sources.first);
+      }
+    }
   }
 
   Future<void> _loadChannels(IPTVPlaylistSource source) async {
     setState(() => _isLoading = true);
-    final channels = await _cacheService.fetchPlaylist(source);
+    
+    List<IPTVChannel> channels;
+    if (source.id == 'unified') {
+      channels = await _mergeService.getLocalPlaylist();
+    } else {
+      channels = await _cacheService.fetchPlaylist(source);
+    }
+    
     if (!mounted) return;
     setState(() {
       _channels = channels;
+
+      final Set<String> categoriesSet = {};
+      for (final ch in channels) {
+        final group = ch.group?.trim();
+        if (group != null && group.isNotEmpty) {
+          categoriesSet.add(group);
+        } else {
+          categoriesSet.add('Uncategorized');
+        }
+      }
+      final sortedCategories = categoriesSet.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      _categories = ['All', ...sortedCategories];
+      _selectedCategory = 'All';
+
       _filterChannels();
       _isLoading = false;
     });
   }
+
+  void _triggerManualSync() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PlaylistSyncScreen(manualTrigger: true),
+      ),
+    );
+  }
+
 
   void _onNavTap(int index) {
     if (index == _selectedNavIndex) return;
@@ -195,24 +283,41 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               focusNode: _searchFocusNode,
               isFocused: _isSearchFocused,
               query: _searchQuery,
-              onChanged: (v) => setState(() {
-                _searchQuery = v.toLowerCase();
-                _filterChannels();
-              }),
-              onClear: () => setState(() {
-                _searchController.clear();
-                _searchQuery = '';
-                _filterChannels();
-              }),
+              onChanged: (v) {
+                // The _searchController.listener handles filtering
+              },
+              onClear: () {
+                setState(() {
+                  _searchController.clear();
+                  _searchQuery = '';
+                  _filterChannels();
+                });
+              },
             ),
           ),
+
+
+          if (!_isLoading && _categories.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: CategoryList(
+                categories: _categories,
+                selectedCategory: _selectedCategory,
+                onCategorySelected: (category) {
+                  setState(() {
+                    _selectedCategory = category;
+                    _filterChannels();
+                  });
+                },
+              ),
+            ),
 
           // Count label
           if (!_isLoading)
             Padding(
               padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 10),
               child: Text(
-                '${_filteredChannels.length} channels',
+                '${_filteredChannels.length} channels' + (_selectedCategory != 'All' ? ' in $_selectedCategory' : ''),
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.white.withOpacity(0.35),
@@ -234,11 +339,113 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         hPad: hPad,
                       ),
           ),
-        ] else
+        ] else if (_selectedNavIndex == 4)
+           Expanded(child: _buildSettings(hPad))
+        else
           const Expanded(child: Center(child: ComingSoon())),
       ],
     );
   }
+
+  Widget _buildSettings(double hPad) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Settings',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 32),
+          _buildSettingsSection(
+            title: 'Playlist Synchronization',
+            description: 'Combine all sources into one verified playlist. This process removes non-working streams.',
+            icon: Icons.sync_rounded,
+            action: ElevatedButton(
+              onPressed: _triggerManualSync,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Update Unified Playlist'),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildSettingsSection(
+            title: 'App Version',
+            description: 'Current version: 1.2.0',
+            icon: Icons.info_outline_rounded,
+            action: Text(
+              'Steady',
+              style: TextStyle(color: Colors.white.withOpacity(0.4)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsSection({
+    required String title,
+    required String description,
+    required IconData icon,
+    required Widget action,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: AppTheme.primaryColor, size: 28),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          action,
+        ],
+      ),
+    );
+  }
+
 
   // ── Playlist picker ────────────────────────────────────────────────────────
 

@@ -17,6 +17,30 @@ class IPTVChannel {
     this.tvgName,
   });
 
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'url': url,
+      'logo': logo,
+      'number': number,
+      'group': group,
+      'tvgId': tvgId,
+      'tvgName': tvgName,
+    };
+  }
+
+  factory IPTVChannel.fromJson(Map<String, dynamic> json) {
+    return IPTVChannel(
+      name: json['name'],
+      url: json['url'],
+      logo: json['logo'],
+      number: json['number'],
+      group: json['group'],
+      tvgId: json['tvgId'],
+      tvgName: json['tvgName'],
+    );
+  }
+
   @override
   String toString() => 'IPTVChannel(name: $name, group: $group)';
 }
@@ -39,4 +63,13 @@ class IPTVPlaylistSource {
       url: json['url'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'url': url,
+    };
+  }
 }
+

@@ -45,11 +45,6 @@
     "url": "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plex_all.m3u"
   },
   {
-    "id": "pluto",
-    "name": "Pluto (Alt)",
-    "url": "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_all.m3u"
-  },
-  {
     "id": "samsungtvplus",
     "name": "Samsung TV Plus (Alt)",
     "url": "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/refs/heads/main/playlists/samsungtvplus_all.m3u"
@@ -73,5 +68,45 @@
     "id": "desporto",
     "name": "Desporto (Alt)",
     "url": "https://raw.githubusercontent.com/dregs1/dregs1.github.io/f5422f13b8214f6373c0407f8651402cc6b937e1/xml/desporto.m3u"
+  },
+  {
+    "id": "free-tv-iptv-1",
+    "name": "Free-TV IPTV",
+    "url": "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
+  },
+  {
+    "id": "zbefine-iptv",
+    "name": "Zbefine IPTV",
+    "url": "https://raw.githubusercontent.com/zbefine/iptv/main/iptv.m3u"
+  },
+  {
+    "id": "vamoschuck-tv",
+    "name": "VamosChuck TV",
+    "url": "https://raw.githubusercontent.com/vamoschuck/TV/main/M3U"
+  },
+  {
+    "id": "yuechan-live",
+    "name": "YueChan Live IPTV",
+    "url": "https://testingcf.jsdelivr.net/gh/YueChan/Live@main/IPTV.m3u"
+  },
+  {
+    "id": "kimentanm-aptv",
+    "name": "Kimentanm APTV",
+    "url": "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u"
+  },
+  {
+    "id": "yang-gather",
+    "name": "YanG Gather IPTV",
+    "url": "https://raw.githubusercontent.com/YanG-1989/m3u/main/Gather.m3u"
+  },
+  {
+    "id": "bigbiggrandg",
+    "name": "BigBigGrandG IPTV",
+    "url": "https://raw.githubusercontent.com/BigBigGrandG/IPTV-URL/release/Gather.m3u"
+  },
+  {
+    "id": "fanmingming-ipv6",
+    "name": "Fanmingming IPTV IPv6",
+    "url": "https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u"
   }
 ]

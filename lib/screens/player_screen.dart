@@ -246,7 +246,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         backgroundColor: Colors.black,
         body: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: _errorMessage == null ? _toggleOverlay : null,
+          onTap: _toggleOverlay,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -255,45 +255,43 @@ class _PlayerScreenState extends State<PlayerScreen>
                 child: BetterPlayer(controller: _playerController),
               ),
 
+              // ── Error Placeholder ────────────────────────────────────────
+              if (_errorMessage != null)
+                Image.asset(
+                  'assets/not-found.jpg',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+
               // ── Buffering spinner ────────────────────────────────────────
               if (_isLoading && _errorMessage == null)
                 const BufferingIndicator(),
 
-              // ── Error ────────────────────────────────────────────────────
-              if (_errorMessage != null)
-                ErrorOverlay(
-                  message: _errorMessage!,
-                  onBack: () => Navigator.of(context).pop(),
-                  onRetry: () {
-                    setState(() { _errorMessage = null; _isLoading = true; });
-                    _playerController.retryDataSource();
-                  },
-                ),
 
               // ── OSD ──────────────────────────────────────────────────────
-              if (_errorMessage == null)
-                AnimatedOpacity(
-                  opacity: _showOverlay ? 1.0 : 0.0,
-                  duration: _kFadeDuration,
-                  child: IgnorePointer(
-                    ignoring: !_showOverlay,
-                    child: PlayerOSD(
-                      channel: _currentChannel,
-                      now: _now,
-                      isMobile: isMobile,
-                      isLandscape: isLandscape,
-                      channelIndex: _currentIndex,
-                      totalChannels: widget.channels.length,
-                      onBack: () => Navigator.of(context).pop(),
-                      onPrev: _prevChannel,
-                      onNext: _nextChannel,
-                      onListToggle: () => setState(() {
-                        _showChannelList = !_showChannelList;
-                        _resetOverlayTimer();
-                      }),
-                    ),
+              AnimatedOpacity(
+                opacity: _showOverlay ? 1.0 : 0.0,
+                duration: _kFadeDuration,
+                child: IgnorePointer(
+                  ignoring: !_showOverlay,
+                  child: PlayerOSD(
+                    channel: _currentChannel,
+                    now: _now,
+                    isMobile: isMobile,
+                    isLandscape: isLandscape,
+                    channelIndex: _currentIndex,
+                    totalChannels: widget.channels.length,
+                    onBack: () => Navigator.of(context).pop(),
+                    onPrev: _prevChannel,
+                    onNext: _nextChannel,
+                    onListToggle: () => setState(() {
+                      _showChannelList = !_showChannelList;
+                      _resetOverlayTimer();
+                    }),
                   ),
                 ),
+              ),
 
               // ── Channel list panel ────────────────────────────────────────
               AnimatedSlide(
