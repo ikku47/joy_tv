@@ -24,6 +24,8 @@ class StreamPlayerScreen extends StatefulWidget {
   final List<StreamSeason>? allSeasons;
   final String? tvShowTitle;
 
+  final String? imdbId;
+
   const StreamPlayerScreen({
     super.key,
     required this.contentId,
@@ -36,6 +38,7 @@ class StreamPlayerScreen extends StatefulWidget {
     this.initialEpisodeIndex = 0,
     this.allSeasons,
     this.tvShowTitle,
+    this.imdbId,
   });
 
   @override
@@ -50,6 +53,7 @@ class _StreamPlayerScreenState extends State<StreamPlayerScreen> {
 
   List<VideoServer>? _servers;
   VideoServer? _currentServer;
+  int _currentServerIndex = 0;
   bool _isLoadingServers = true;
   bool _isLoadingVideo = false;
   String? _error;
@@ -162,8 +166,9 @@ class _StreamPlayerScreenState extends State<StreamPlayerScreen> {
       setState(() {
         _servers = servers;
         _isLoadingServers = false;
+        _currentServerIndex = 0;
       });
-      _loadServer(servers.first);
+      _autoLoadNextServer();
     } catch (e) {
       if (mounted) setState(() { _isLoadingServers = false; _error = 'Server error: $e'; });
     }
@@ -183,8 +188,41 @@ class _StreamPlayerScreenState extends State<StreamPlayerScreen> {
     return file.path;
   }
 
-  Future<void> _loadServer(VideoServer server) async {
-    if (mounted) setState(() { _currentServer = server; _isLoadingVideo = true; _error = null; });
+
+  Future<void> _autoLoadNextServer() async {
+    if (_servers == null || _servers!.isEmpty) return;
+    
+    while (_currentServerIndex < _servers!.length) {
+      final server = _servers![_currentServerIndex];
+      logI('Attempting auto-load server: ${server.name} (index: $_currentServerIndex)', tag: 'StreamPlayer');
+      
+      final success = await _loadServer(server);
+      if (success) {
+        logI('Successfully loaded server: ${server.name}', tag: 'StreamPlayer');
+        return;
+      }
+      
+      // If we failed, increment and try next
+      _currentServerIndex++;
+    }
+    
+    // If we reached here, all servers failed
+    if (mounted) {
+      setState(() {
+        _isLoadingVideo = false;
+        _error = 'All available sources failed to load. Please try again later or check your connection.';
+      });
+    }
+  }
+
+  Future<bool> _loadServer(VideoServer server) async {
+    if (mounted) {
+      setState(() {
+        _currentServer = server;
+        _isLoadingVideo = true;
+        _error = null;
+      });
+    }
 
     try {
       final video = await _service.extractVideo(server);
@@ -220,6 +258,7 @@ class _StreamPlayerScreenState extends State<StreamPlayerScreen> {
               enablePlaybackSpeed: false,
               enableSkips: true,
               enableFullscreen: false,
+              enableOverflowMenu: false,
               forwardSkipTimeInMilliseconds: 10000,
               backwardSkipTimeInMilliseconds: 10000,
               controlBarColor: Colors.black54,
@@ -231,19 +270,28 @@ class _StreamPlayerScreenState extends State<StreamPlayerScreen> {
           ),
           betterPlayerDataSource: dataSource,
         );
+        
+        // Add listener to catch errors and fallback to next server
+        _playerController!.addEventsListener((event) {
+          if (event.betterPlayerEventType == BetterPlayerEventType.exception) {
+            logW('Player error on server ${server.name}. Attempting next source...', tag: 'StreamPlayer');
+            _currentServerIndex++;
+            _autoLoadNextServer();
+          }
+        });
+
       } else {
+        // Clear previous source listener if needed, but BetterPlayer plus might handle it.
+        // We'll just setup the new data source.
         await _playerController!.setupDataSource(dataSource);
         _playerController!.setSpeed(_speed);
       }
 
       if (mounted) setState(() => _isLoadingVideo = false);
+      return true;
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoadingVideo = false;
-          _error = 'Extraction failed for "${server.name}":\n$e\n\nTry switching server.';
-        });
-      }
+      logE('Extraction failed for ${server.name}', tag: 'StreamPlayer', error: e);
+      return false;
     }
   }
 
@@ -509,6 +557,7 @@ class _StreamPlayerScreenState extends State<StreamPlayerScreen> {
         currentServer: _currentServer,
         onSelect: (s) {
           Navigator.pop(context);
+          _currentServerIndex = _servers?.indexOf(s) ?? 0;
           _loadServer(s);
         },
       ),
