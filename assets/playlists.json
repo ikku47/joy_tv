@@ -1,5 +1,10 @@
 [
   {
+    "id": "joy-tv-combined",
+    "name": "Joy TV (Combined)",
+    "url": "https://raw.githubusercontent.com/ikku47/joy_tv/main/assets/default_playlist.m3u8"
+  },
+  {
     "id": "iptv-org",
     "name": "IPTV-org (Default)",
     "url": "https://iptv-org.github.io/iptv/index.m3u"
@@ -108,5 +113,10 @@
     "id": "fanmingming-ipv6",
     "name": "Fanmingming IPTV IPv6",
     "url": "https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/ipv6.m3u"
+  },
+  {
+    "id": "cricHd-playlists-Auto-Update-permanent",
+    "name": "CricHd Playlists Auto Update permanent",
+    "url": "https://raw.githubusercontent.com/abusaeeidx/CricHd-playlists-Auto-Update-permanent/refs/heads/main/ALL.m3u"
   }
 ]

@@ -263,20 +263,52 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Widget _buildBody(bool isMobile) {
     final hPad = isMobile ? 16.0 : 28.0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: [
-        HomeHeader(
-          isMobile: isMobile,
-          navIndex: _selectedNavIndex,
-          sources: _sources,
-          selectedSourceId: _selectedSourceId,
-          onSourcePick: _showPlaylistPicker,
-          hPad: hPad,
+        // Content Area
+        Positioned.fill(
+          child: _buildMainContent(isMobile, hPad),
         ),
 
-        if (_selectedNavIndex == 0) ...[
-          // Live TV / Search / Grid logic...
+        // Header (Overlay)
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: _selectedNavIndex == 1 || _selectedNavIndex == 2
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.7),
+                        Colors.transparent,
+                      ],
+                    )
+                  : null,
+            ),
+            child: HomeHeader(
+              isMobile: isMobile,
+              navIndex: _selectedNavIndex,
+              sources: _sources,
+              selectedSourceId: _selectedSourceId,
+              onSourcePick: _showPlaylistPicker,
+              hPad: hPad,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainContent(bool isMobile, double hPad) {
+    if (_selectedNavIndex == 0) {
+      // Live TV / Search / Grid logic...
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: isMobile ? 110 : 100), // Header space
           Padding(
             padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
             child: HomeSearchBar(
@@ -284,9 +316,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               focusNode: _searchFocusNode,
               isFocused: _isSearchFocused,
               query: _searchQuery,
-              onChanged: (v) {
-                // The _searchController.listener handles filtering
-              },
+              onChanged: (v) {},
               onClear: () {
                 setState(() {
                   _searchController.clear();
@@ -296,8 +326,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               },
             ),
           ),
-
-
           if (!_isLoading && _categories.length > 1)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -312,13 +340,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 },
               ),
             ),
-
-          // Count label
           if (!_isLoading)
             Padding(
               padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 10),
               child: Text(
-                '${_filteredChannels.length} channels' + (_selectedCategory != 'All' ? ' in $_selectedCategory' : ''),
+                '${_filteredChannels.length} channels' +
+                    (_selectedCategory != 'All' ? ' in $_selectedCategory' : ''),
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.white.withOpacity(0.35),
@@ -338,28 +365,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         hPad: hPad,
                       ),
           ),
-        ] else if (_selectedNavIndex == 1)
-          Expanded(
-            child: DiscoveryBody(
-              key: const ValueKey('discovery-movies'),
-              isMobile: isMobile,
-              hPad: hPad,
-              section: "movies",
-            ),
-          )
-        else if (_selectedNavIndex == 2)
-          Expanded(
-            child: DiscoveryBody(
-              key: const ValueKey('discovery-series'),
-              isMobile: isMobile,
-              hPad: hPad,
-              section: "series",
-            ),
-          )
-        else
-          const Expanded(child: Center(child: ComingSoon())),
-      ],
-    );
+        ],
+      );
+    } else if (_selectedNavIndex == 1) {
+      return DiscoveryBody(
+        key: const ValueKey('discovery-movies'),
+        isMobile: isMobile,
+        hPad: hPad,
+        section: "movies",
+      );
+    } else if (_selectedNavIndex == 2) {
+      return DiscoveryBody(
+        key: const ValueKey('discovery-series'),
+        isMobile: isMobile,
+        hPad: hPad,
+        section: "series",
+      );
+    } else if (_selectedNavIndex == 4) {
+      return Column(
+        children: [
+          SizedBox(height: isMobile ? 110 : 100),
+          Expanded(child: _buildSettings(hPad)),
+        ],
+      );
+    } else {
+      return const Center(child: ComingSoon());
+    }
   }
 
   Widget _buildSettings(double hPad) {

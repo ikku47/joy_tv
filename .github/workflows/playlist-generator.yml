@@ -1,0 +1,51 @@
+name: Generate Playlist Daily
+
+on:
+  schedule:
+    # Midnight Dubai time = 20:00 UTC (Dubai is UTC+4)
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+jobs:
+  generate-playlist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours max (GitHub limit)
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Generate playlist
+        run: |
+          python scripts/combine_playlists.py
+      
+      - name: Check if playlist was generated
+        id: check
+        run: |
+          if [ -f assets/default_playlist.m3u8 ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "size=$(wc -l < assets/default_playlist.m3u8)" >> $GITHUB_OUTPUT
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push changes
+        if: steps.check.outputs.status == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/default_playlist.m3u8
+          git commit -m "🎬 Update playlist - $(date -u +'%Y-%m-%d %H:%M:%S') UTC" || echo "No changes to commit"
+          git push
+      
+      - name: Notify on failure
+        if: steps.check.outputs.status == 'failed'
+        run: echo "❌ Playlist generation failed"
