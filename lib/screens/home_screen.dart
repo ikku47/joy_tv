@@ -16,6 +16,7 @@ import '../widgets/home/bottom_bar_button.dart';
 import '../widgets/home/playlist_picker_sheet.dart';
 import '../widgets/common/status_widgets.dart';
 import '../widgets/home/category_list.dart';
+import '../widgets/discovery/discovery_body.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -275,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
 
         if (_selectedNavIndex == 0) ...[
-          // Search
+          // Live TV / Search / Grid logic...
           Padding(
             padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
             child: HomeSearchBar(
@@ -325,8 +326,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
               ),
             ),
-
-          // Grid
           Expanded(
             child: _isLoading
                 ? const Center(child: LoadingIndicator())
@@ -339,8 +338,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         hPad: hPad,
                       ),
           ),
-        ] else if (_selectedNavIndex == 4)
-           Expanded(child: _buildSettings(hPad))
+        ] else if (_selectedNavIndex == 1)
+          Expanded(
+            child: DiscoveryBody(
+              key: const ValueKey('discovery-movies'),
+              isMobile: isMobile,
+              hPad: hPad,
+              section: "movies",
+            ),
+          )
+        else if (_selectedNavIndex == 2)
+          Expanded(
+            child: DiscoveryBody(
+              key: const ValueKey('discovery-series'),
+              isMobile: isMobile,
+              hPad: hPad,
+              section: "series",
+            ),
+          )
         else
           const Expanded(child: Center(child: ComingSoon())),
       ],

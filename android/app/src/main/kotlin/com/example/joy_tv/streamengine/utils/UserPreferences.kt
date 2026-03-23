@@ -1,0 +1,436 @@
+package com.example.joy_tv.streamengine.utils
+
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log // <-- Import Log
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
+import com.example.joy_tv.BuildConfig
+import com.example.joy_tv.R
+import com.example.joy_tv.streamengine.providers.Provider
+import com.example.joy_tv.streamengine.providers.Provider.Companion.providers
+import com.example.joy_tv.streamengine.providers.TmdbProvider
+import androidx.core.content.edit
+import com.example.joy_tv.streamengine.database.AppDatabase
+import org.json.JSONObject
+
+object UserPreferences {
+
+    private const val TAG = "UserPrefsDebug" // <-- TAG per i Log
+
+    private lateinit var prefs: SharedPreferences
+
+    // Default DoH Provider URL (Cloudflare)
+    private const val DEFAULT_DOH_PROVIDER_URL = "https://cloudflare-dns.com/dns-query"
+    const val DOH_DISABLED_VALUE = "" // Value to represent DoH being disabled
+    private const val DEFAULT_STREAMINGCOMMUNITY_DOMAIN = "streamingunity.biz"
+    private const val DEFAULT_CUEVANA_DOMAIN = "cuevana3.la"
+    private const val DEFAULT_POSEIDON_DOMAIN = "www.poseidonhd2.co"
+
+    const val PROVIDER_URL = "URL"
+    const val PROVIDER_LOGO = "LOGO"
+    const val PROVIDER_PORTAL_URL = "PORTAL_URL"
+    const val PROVIDER_AUTOUPDATE = "AUTOUPDATE_URL"
+    const val PROVIDER_NEW_INTERFACE = "NEW_INTERFACE"
+
+    lateinit var providerCache: JSONObject
+
+    fun setup(context: Context) {
+        Log.d(TAG, "setup() called with context: $context")
+        val prefsName = "${BuildConfig.APPLICATION_ID}.preferences"
+        Log.d(TAG, "SharedPreferences name: $prefsName")
+        prefs = context.getSharedPreferences(
+            prefsName,
+            Context.MODE_PRIVATE,
+        )
+        if (::prefs.isInitialized) {
+            Log.d(TAG, "prefs initialized successfully in setup. Hash: ${prefs.hashCode()}")
+
+            val jsonString = Key.PROVIDER_CACHE.getString() ?: "{}"
+            providerCache = runCatching { JSONObject(jsonString) }.getOrDefault(JSONObject())
+
+        } else {
+            Log.e(TAG, "prefs FAILED to initialize in setup.")
+        }
+    }
+
+
+    var currentProvider: Provider?
+        get() {
+            val providerName = Key.CURRENT_PROVIDER.getString()
+            if (providerName?.startsWith("TMDb (") == true && providerName.endsWith(")")) {
+                val lang = providerName.substringAfter("TMDb (").substringBefore(")")
+                return TmdbProvider(lang)
+            }
+            return Provider.providers.keys.find { it.name == providerName }
+        }
+        set(value) {
+            // CRITICO: Resetta l'istanza del database prima di cambiare provider
+            // per forzare la creazione di un nuovo database file corretto.
+            AppDatabase.resetInstance()
+
+            Key.CURRENT_PROVIDER.setString(value?.name)
+            // Notify all ViewModels that the provider has changed
+            ProviderChangeNotifier.notifyProviderChanged()
+        }
+
+    fun getProviderCache(provider: Provider, key: String): String {
+        return providerCache
+            .optJSONObject(provider.name)
+            ?.optString(key)
+            .orEmpty()
+    }
+
+    fun setProviderCache(provider: Provider?, key: String, value: String) {
+        val providerName = provider?.name ?: currentProvider?.name ?: return
+        val innerJson = providerCache.optJSONObject(providerName)
+            ?: JSONObject().also { providerCache.put(providerName, it) }
+        innerJson.put(key, value)
+        Key.PROVIDER_CACHE.setString(providerCache.toString())
+    }
+
+    fun clearProviderCache(providerName: String) {
+        if (providerCache.has(providerName)) {
+            Log.d(TAG, "CACHE: Removing stored data for $providerName")
+            providerCache.remove(providerName)
+            Key.PROVIDER_CACHE.setString(providerCache.toString())
+        } else {
+            Log.d(TAG, "CACHE: No existing data to clear for $providerName")
+        }
+    }
+
+    var currentLanguage: String?
+        get() = Key.CURRENT_LANGUAGE.getString()
+        set(value) = Key.CURRENT_LANGUAGE.setString(value)
+
+    var captionTextSize: Float
+        get() = Key.CAPTION_TEXT_SIZE.getFloat() ?: 18f
+        set(value) {
+            Key.CAPTION_TEXT_SIZE.setFloat(value)
+        }
+
+    var autoplay: Boolean
+        get() = Key.AUTOPLAY.getBoolean() ?: true
+        set(value) {
+            Key.AUTOPLAY.setBoolean(value)
+        }
+
+    var keepScreenOnWhenPaused: Boolean
+        get() = Key.KEEP_SCREEN_ON_WHEN_PAUSED.getBoolean() ?: false
+        set(value) {
+            Key.KEEP_SCREEN_ON_WHEN_PAUSED.setBoolean(value)
+        }
+
+    var playerGestures: Boolean
+        get() = Key.PLAYER_GESTURES.getBoolean() ?: true
+        set(value) {
+            Key.PLAYER_GESTURES.setBoolean(value)
+        }
+
+    var immersiveMode: Boolean
+        get() = Key.IMMERSIVE_MODE.getBoolean() ?: false // Default changed to false
+        set(value) {
+            Key.IMMERSIVE_MODE.setBoolean(value)
+        }
+
+    var forceExtraBuffering: Boolean
+        get() = Key.FORCE_EXTRA_BUFFERING.getBoolean() ?: false
+        set(value) {
+            Key.FORCE_EXTRA_BUFFERING.setBoolean(value)
+        }
+
+    var autoplayBuffer: Long
+        get() = Key.AUTOPLAY_BUFFER.getLong() ?: 3L
+        set(value) {
+            Key.AUTOPLAY_BUFFER.setLong(value)
+        }
+
+    var serverAutoSubtitlesDisabled: Boolean
+        get() = Key.SERVER_AUTO_SUBTITLES_DISABLED.getBoolean() ?: true
+        set(value) {
+            Key.SERVER_AUTO_SUBTITLES_DISABLED.setBoolean(value)
+        }
+
+    var selectedTheme: String
+        get() = Key.SELECTED_THEME.getString() ?: "default"
+        set(value) = Key.SELECTED_THEME.setString(value)
+
+    var tmdbApiKey: String
+        get() = Key.TMDB_API_KEY.getString() ?: ""
+        set(value) {
+            Key.TMDB_API_KEY.setString(value)
+            TMDb3.rebuildService()
+        }
+    var enableTmdb: Boolean
+        get() = Key.ENABLE_TMDB.getBoolean() ?: true
+        set(value) {
+            Key.ENABLE_TMDB.setBoolean(value)
+            TMDb3.rebuildService()
+        }
+
+    var subdlApiKey: String
+        get() = Key.SUBDL_API_KEY.getString() ?: ""
+        set(value) {
+            Key.SUBDL_API_KEY.setString(value)
+        }
+
+    enum class PlayerResize(
+        val stringRes: Int,
+        val resizeMode: Int,
+    ) {
+        Fit(R.string.player_aspect_ratio_fit, AspectRatioFrameLayout.RESIZE_MODE_FIT),
+        Fill(R.string.player_aspect_ratio_fill, AspectRatioFrameLayout.RESIZE_MODE_FILL),
+        Zoom(R.string.player_aspect_ratio_zoom, AspectRatioFrameLayout.RESIZE_MODE_ZOOM),
+        Stretch43(R.string.player_aspect_ratio_zoom_4_3, AspectRatioFrameLayout.RESIZE_MODE_FIT),
+        StretchVertical(R.string.player_aspect_ratio_stretch_vertical, AspectRatioFrameLayout.RESIZE_MODE_FIT),
+        SuperZoom(R.string.player_aspect_ratio_super_zoom, AspectRatioFrameLayout.RESIZE_MODE_FIT);
+    }
+
+    var playerResize: PlayerResize
+        get() = PlayerResize.entries.find { it.resizeMode == Key.PLAYER_RESIZE.getInt() && it.name == Key.PLAYER_RESIZE_NAME.getString() }
+            ?: PlayerResize.entries.find { it.resizeMode == Key.PLAYER_RESIZE.getInt() }
+            ?: PlayerResize.Fit
+        set(value) {
+            Key.PLAYER_RESIZE.setInt(value.resizeMode)
+            Key.PLAYER_RESIZE_NAME.setString(value.name)
+        }
+
+    var captionStyle: CaptionStyleCompat
+        get() = CaptionStyleCompat(
+            Key.CAPTION_STYLE_FONT_COLOR.getInt() ?: -1, // WHITE
+            Key.CAPTION_STYLE_BACKGROUND_COLOR.getInt() ?: 0, // TRANSPARENT
+            Key.CAPTION_STYLE_WINDOW_COLOR.getInt() ?: 0,
+            Key.CAPTION_STYLE_EDGE_TYPE.getInt() ?: 0,
+            Key.CAPTION_STYLE_EDGE_COLOR.getInt() ?: 0,
+            null // Default Typeface
+        )
+        set(value) {
+            Key.CAPTION_STYLE_FONT_COLOR.setInt(value.foregroundColor)
+            Key.CAPTION_STYLE_BACKGROUND_COLOR.setInt(value.backgroundColor)
+            Key.CAPTION_STYLE_WINDOW_COLOR.setInt(value.windowColor)
+            Key.CAPTION_STYLE_EDGE_TYPE.setInt(value.edgeType)
+            Key.CAPTION_STYLE_EDGE_COLOR.setInt(value.edgeColor)
+        }
+
+    var captionMargin: Int
+        get() = Key.CAPTION_STYLE_MARGIN.getInt() ?: 24
+        set(value) {
+            Key.CAPTION_STYLE_MARGIN.setInt(value)
+        }
+
+    var qualityHeight: Int?
+        get() = Key.QUALITY_HEIGHT.getInt()
+        set(value) {
+            Key.QUALITY_HEIGHT.setInt(value)
+        }
+
+    var subtitleName: String?
+        get() = Key.SUBTITLE_NAME.getString()
+        set(value) = Key.SUBTITLE_NAME.setString(value)
+    var streamingcommunityDomain: String
+        get() {
+            Log.d(TAG, "streamingcommunityDomain GET called")
+            if (!::prefs.isInitialized) {
+                Log.e(TAG, "streamingcommunityDomain GET: prefs IS NOT INITIALIZED!")
+                return "PREFS_NOT_INIT_ERROR" // Restituisce un valore di errore evidente
+            }
+            Log.d(TAG, "streamingcommunityDomain GET: prefs hash: ${prefs.hashCode()}")
+            val storedValue = prefs.getString(Key.STREAMINGCOMMUNITY_DOMAIN.name, null)
+            Log.d(TAG, "streamingcommunityDomain GET: storedValue from prefs: '$storedValue'")
+            val returnValue = if (storedValue.isNullOrEmpty()) {
+                Log.d(TAG, "streamingcommunityDomain GET: storedValue is null or empty, returning DEFAULT: '$DEFAULT_STREAMINGCOMMUNITY_DOMAIN'")
+                DEFAULT_STREAMINGCOMMUNITY_DOMAIN
+            } else {
+                Log.d(TAG, "streamingcommunityDomain GET: storedValue is NOT null or empty, returning storedValue: '$storedValue'")
+                storedValue
+            }
+            Log.d(TAG, "streamingcommunityDomain GET: final returnValue: '$returnValue'")
+            return returnValue
+        }
+        set(value) {
+            val oldDomain = if (::prefs.isInitialized) prefs.getString(Key.STREAMINGCOMMUNITY_DOMAIN.name, null) else null
+            Log.d(TAG, "streamingcommunityDomain SET called with value: '$value' (Old: '$oldDomain')")
+            
+            if (!::prefs.isInitialized) {
+                Log.e(TAG, "streamingcommunityDomain SET: prefs IS NOT INITIALIZED!")
+                return 
+            }
+
+            // TRIGGER PULIZIA CACHE SE IL DOMINIO CAMBIA
+            if (value != oldDomain && !value.isNullOrEmpty() && !oldDomain.isNullOrEmpty()) {
+                clearProviderCache("StreamingCommunity")
+            }
+
+            with(prefs.edit()) {
+                if (value.isNullOrEmpty()) {
+                    remove(Key.STREAMINGCOMMUNITY_DOMAIN.name)
+                } else {
+                    putString(Key.STREAMINGCOMMUNITY_DOMAIN.name, value)
+                }
+                apply()
+            }
+        }
+
+    var cuevanaDomain: String
+        get() {
+            if (!::prefs.isInitialized) return DEFAULT_CUEVANA_DOMAIN
+            val storedValue = prefs.getString(Key.CUEVANA_DOMAIN.name, null)
+            return if (storedValue.isNullOrEmpty()) DEFAULT_CUEVANA_DOMAIN else storedValue
+        }
+        set(value) {
+            val oldDomain = if (::prefs.isInitialized) prefs.getString(Key.CUEVANA_DOMAIN.name, null) else null
+            if (!::prefs.isInitialized) return
+
+            if (value != oldDomain && !value.isNullOrEmpty() && !oldDomain.isNullOrEmpty()) {
+                clearProviderCache("Cuevana 3")
+            }
+
+            with(prefs.edit()) {
+                if (value.isNullOrEmpty()) {
+                    remove(Key.CUEVANA_DOMAIN.name)
+                } else {
+                    putString(Key.CUEVANA_DOMAIN.name, value)
+                }
+                apply()
+            }
+        }
+
+    var poseidonDomain: String
+        get() {
+            if (!::prefs.isInitialized) return DEFAULT_POSEIDON_DOMAIN
+            val storedValue = prefs.getString(Key.POSEIDON_DOMAIN.name, null)
+            return if (storedValue.isNullOrEmpty()) DEFAULT_POSEIDON_DOMAIN else storedValue
+        }
+        set(value) {
+            val oldDomain = if (::prefs.isInitialized) prefs.getString(Key.POSEIDON_DOMAIN.name, null) else null
+            if (!::prefs.isInitialized) return
+
+            if (value != oldDomain && !value.isNullOrEmpty() && !oldDomain.isNullOrEmpty()) {
+                clearProviderCache("Poseidonhd2")
+            }
+
+            with(prefs.edit()) {
+                if (value.isNullOrEmpty()) {
+                    remove(Key.POSEIDON_DOMAIN.name)
+                } else {
+                    putString(Key.POSEIDON_DOMAIN.name, value)
+                }
+                apply()
+            }
+        }
+
+    var dohProviderUrl: String
+        get() = Key.DOH_PROVIDER_URL.getString() ?: DEFAULT_DOH_PROVIDER_URL
+        set(value) {
+            Key.DOH_PROVIDER_URL.setString(value)
+            DnsResolver.setDnsUrl(value)
+        }
+
+    var paddingX: Int
+        get() = Key.SCREEN_PADDING_X.getInt() ?: 0
+        set(value) = Key.SCREEN_PADDING_X.setInt(value)
+
+    var paddingY: Int
+        get() = Key.SCREEN_PADDING_Y.getInt() ?: 0
+        set(value) = Key.SCREEN_PADDING_Y.setInt(value)
+
+    private enum class Key {
+        APP_LAYOUT,
+        CURRENT_LANGUAGE,
+        CURRENT_PROVIDER,
+        PLAYER_RESIZE,
+        PLAYER_RESIZE_NAME,
+        CAPTION_TEXT_SIZE,
+        CAPTION_STYLE_FONT_COLOR,
+        CAPTION_STYLE_BACKGROUND_COLOR,
+        CAPTION_STYLE_WINDOW_COLOR,
+        CAPTION_STYLE_EDGE_TYPE,
+        CAPTION_STYLE_EDGE_COLOR,
+        CAPTION_STYLE_MARGIN,
+        SCREEN_PADDING_X,
+        SCREEN_PADDING_Y,
+        QUALITY_HEIGHT,
+        SUBTITLE_NAME,
+        STREAMINGCOMMUNITY_DOMAIN,
+        CUEVANA_DOMAIN,
+        POSEIDON_DOMAIN,
+        DOH_PROVIDER_URL, // Removed STREAMINGCOMMUNITY_DNS_OVER_HTTPS, added DOH_PROVIDER_URL
+        AUTOPLAY,
+        PROVIDER_CACHE,
+        KEEP_SCREEN_ON_WHEN_PAUSED,
+        PLAYER_GESTURES,
+        IMMERSIVE_MODE,
+        TMDB_API_KEY,
+        SUBDL_API_KEY,
+        FORCE_EXTRA_BUFFERING,
+        AUTOPLAY_BUFFER,
+        SERVER_AUTO_SUBTITLES_DISABLED,
+        ENABLE_TMDB,
+        SELECTED_THEME;
+
+        fun getBoolean(): Boolean? = when {
+            prefs.contains(name) -> prefs.getBoolean(name, false)
+            else -> null
+        }
+
+        fun getFloat(): Float? = when {
+            prefs.contains(name) -> prefs.getFloat(name, 0F)
+            else -> null
+        }
+
+        fun getInt(): Int? = when {
+            prefs.contains(name) -> prefs.getInt(name, 0)
+            else -> null
+        }
+
+        fun getLong(): Long? = when {
+            prefs.contains(name) -> prefs.getLong(name, 0)
+            else -> null
+        }
+
+        fun getString(): String? = when {
+            prefs.contains(name) -> prefs.getString(name, null)
+            else -> null
+        }
+
+        fun setBoolean(value: Boolean?) = value?.let {
+            with(prefs.edit()) {
+                putBoolean(name, value)
+                apply()
+            }
+        } ?: remove()
+
+        fun setFloat(value: Float?) = value?.let {
+            with(prefs.edit()) {
+                putFloat(name, value)
+                apply()
+            }
+        } ?: remove()
+
+        fun setInt(value: Int?) = value?.let {
+            with(prefs.edit()) {
+                putInt(name, value)
+                apply()
+            }
+        } ?: remove()
+
+        fun setLong(value: Long?) = value?.let {
+            with(prefs.edit()) {
+                putLong(name, value)
+                apply()
+            }
+        } ?: remove()
+
+        fun setString(value: String?) = value?.let {
+            with(prefs.edit()) {
+                putString(name, value)
+                apply()
+            }
+        } ?: remove()
+
+        fun remove() = with(prefs.edit()) {
+            remove(name)
+            apply()
+        }
+    }
+}
