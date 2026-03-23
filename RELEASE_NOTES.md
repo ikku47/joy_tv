@@ -1,3 +1,25 @@
+# Release Notes - Joy TV v1.3.0
+
+This release introduces automated daily playlist updates through GitHub Actions, ensuring our default playlist is always fresh and verified. This update also brings enhancements to our internal streaming engine and discovery visuals.
+
+## 🚀 Automated Playlist Engine
+- **Daily Updates**: Integrated GitHub Actions to automatically regenerate and verify the combined playlist every 24 hours.
+- **"Joy TV (Combined)" Source**: Added as the new default source, combining all IPTV links into one verified, deduplicated list.
+- **Smart Link Verification**: Our Python-based generator now performs 100+ parallel health checks per second to prune broken links.
+- **Automation Tools**: New `scripts/` directory with easy-to-use Bash and Python tools for manual generation.
+
+## 📺 Enhanced Streaming & UI Experience
+- **Consolidated Search & Filter**: Improved categorization and search logic to handle our massive unified list (40k+ entries).
+- **Discovery Visuals**: Refined item scaling and border effects on the "Discovery" screen for better remote navigation.
+- **Better Date Handling**: Optimized date parsing across all content models with new extensions.
+
+## 🛠 Internal Improvements
+- **Security & Stability**: Implemented self-reference protection in the playlist generator.
+- **GitHub Workflow Support**: Full CI/CD support for the playlist generation engine.
+
+---
+*Version: 1.3.0 (Build 3)*
+
 # Release Notes - Joy TV v1.2.0
 
 This release focuses on optimizing the user experience for Android TV and remote-controlled devices, while streamlining input handling on mobile.
