@@ -264,18 +264,53 @@ class VideoSource {
   }
 }
 
+class StreamGenre {
+  final String id;
+  final String name;
+  final List<StreamItem>? shows;
+
+  StreamGenre({required this.id, required this.name, this.shows});
+
+  factory StreamGenre.fromJson(Map<String, dynamic> json) {
+    return StreamGenre(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      shows: (json['shows'] as List?)?.map((i) => StreamItem.fromJson(i)).toList(),
+    );
+  }
+}
+
 class StreamPeople {
   final String id;
   final String name;
   final String? image;
+  final String? biography;
+  final String? birthday;
+  final String? deathday;
+  final String? placeOfBirth;
+  final List<StreamItem>? filmography;
 
-  StreamPeople({required this.id, required this.name, this.image});
+  StreamPeople({
+    required this.id, 
+    required this.name, 
+    this.image,
+    this.biography,
+    this.birthday,
+    this.deathday,
+    this.placeOfBirth,
+    this.filmography,
+  });
 
   factory StreamPeople.fromJson(Map<String, dynamic> json) {
     return StreamPeople(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       image: json['image']?.toString(),
+      biography: json['biography']?.toString(),
+      birthday: _normalizeReleased(json['birthday']),
+      deathday: _normalizeReleased(json['deathday']),
+      placeOfBirth: json['placeOfBirth']?.toString(),
+      filmography: (json['filmography'] as List?)?.map((i) => StreamItem.fromJson(i)).toList(),
     );
   }
 }

@@ -152,6 +152,81 @@ class TmdbProvider(override val language: String) : Provider {
         categories
     }
 
+    suspend fun getGenericList(endpoint: String, page: Int = 1): List<AppAdapter.Item> {
+        val mapMulti: (TMDb3.MultiItem) -> AppAdapter.Item? = { multi ->
+            when (multi) {
+                is TMDb3.Movie -> {
+                    if (multi.posterPath.isNullOrEmpty()) null
+                    else Movie(
+                        id = multi.id.toString(),
+                        title = multi.title,
+                        overview = multi.overview,
+                        released = multi.releaseDate,
+                        rating = multi.voteAverage?.toDouble() ?: 0.0,
+                        poster = multi.posterPath?.w500,
+                        banner = multi.backdropPath?.original,
+                    )
+                }
+                is TMDb3.Tv -> {
+                    if (multi.posterPath.isNullOrEmpty()) null
+                    else TvShow(
+                        id = multi.id.toString(),
+                        title = multi.name,
+                        overview = multi.overview,
+                        released = multi.firstAirDate,
+                        rating = multi.voteAverage?.toDouble() ?: 0.0,
+                        poster = multi.posterPath?.w500,
+                        banner = multi.backdropPath?.original,
+                    )
+                }
+                else -> null
+            }
+        }
+        val items = TMDb3.Generic.list(endpoint, language, page)
+        return items.mapNotNull(mapMulti)
+    }
+
+    suspend fun discover(type: String, params: Map<String, String>, page: Int = 1): List<AppAdapter.Item> {
+        val mapMulti: (TMDb3.MultiItem) -> AppAdapter.Item? = { multi ->
+            when (multi) {
+                is TMDb3.Movie -> {
+                    if (multi.posterPath.isNullOrEmpty()) null
+                    else Movie(
+                        id = multi.id.toString(),
+                        title = multi.title,
+                        overview = multi.overview,
+                        released = multi.releaseDate,
+                        rating = multi.voteAverage?.toDouble() ?: 0.0,
+                        poster = multi.posterPath?.w500,
+                        banner = multi.backdropPath?.original,
+                    )
+                }
+                is TMDb3.Tv -> {
+                    if (multi.posterPath.isNullOrEmpty()) null
+                    else TvShow(
+                        id = multi.id.toString(),
+                        title = multi.name,
+                        overview = multi.overview,
+                        released = multi.firstAirDate,
+                        rating = multi.voteAverage?.toDouble() ?: 0.0,
+                        poster = multi.posterPath?.w500,
+                        banner = multi.backdropPath?.original,
+                    )
+                }
+                else -> null
+            }
+        }
+        val safeParams = params.toMutableMap()
+        safeParams["language"] = language
+        safeParams["page"] = page.toString()
+        val items = if (type == "movie") {
+            TMDb3.Discover.movie(safeParams).results
+        } else {
+            TMDb3.Discover.tv(safeParams).results
+        }
+        return items.mapNotNull(mapMulti)
+    }
+
     override suspend fun search(query: String, page: Int): List<AppAdapter.Item> {
         if (query.isEmpty()) {
             val genres = listOf(

@@ -447,6 +447,27 @@ object TMDb3 {
         }
     }
 
+    object Generic {
+        suspend fun list(endpoint: String, language: String, page: Int): List<MultiItem> {
+            val params = mapOf(
+                Params.Key.LANGUAGE to language,
+                Params.Key.PAGE to page.toString(),
+            )
+            val res = service.getGenericList(endpoint, params.filterNotNullValues())
+            val results = res.getAsJsonArray("results") ?: return emptyList()
+            return results.mapNotNull {
+                val json = it.asJsonObject
+                if (json.has("media_type") && json.get("media_type").asString == "person") {
+                     Gson().fromJson(json, Person::class.java)
+                } else if (json.has("name") && !json.has("title")) {
+                    Gson().fromJson(json, Tv::class.java)
+                } else if (json.has("title")) {
+                    Gson().fromJson(json, Movie::class.java)
+                } else null
+            }
+        }
+    }
+
     object TvSeriesLists {
 
         suspend fun airingToday(
@@ -989,6 +1010,12 @@ object TMDb3 {
         suspend fun getDiscoverTv(
             @QueryMap params: Map<String, String> = emptyMap(),
         ): PageResult<Tv>
+
+        @GET("{endpoint}")
+        suspend fun getGenericList(
+            @Path("endpoint", encoded = true) endpoint: String,
+            @QueryMap params: Map<String, String> = emptyMap(),
+        ): JsonObject
 
 
         @GET("genre/movie/list")

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dpad/dpad.dart';
 import 'screens/home_screen.dart';
-import 'screens/playlist_sync_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -20,7 +19,7 @@ class JoyTVApp extends StatelessWidget {
         title: 'Joy TV',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: const PlaylistSyncScreen(),
+        home: const HomeScreen(),
       ),
     );
   }

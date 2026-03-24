@@ -30,6 +30,50 @@ class StreamEngineService {
     }
   }
 
+  Future<List<StreamItem>> getTmdbList(String endpoint, {int page = 1, String language = 'en'}) async {
+    try {
+      final res = await _channel.invokeMethod('get_tmdb_list', {
+        'endpoint': endpoint,
+        'page': page,
+        'language': language,
+      });
+
+      final jsonString = _asJsonString(res);
+      if (jsonString == null) return [];
+      logJson('get_tmdb_list_$endpoint', jsonString, tag: 'StreamEngine');
+      final list = jsonDecode(jsonString) as List;
+      return list.map((e) => StreamItem.fromJson(e)).toList();
+    } catch (e, st) {
+      logE('get_tmdb_list failed', tag: 'StreamEngine', error: e, stackTrace: st);
+      return [];
+    }
+  }
+
+  Future<List<StreamItem>> discover({
+    required String type, // "movie" or "tv"
+    required Map<String, String> params,
+    int page = 1,
+    String language = 'en',
+  }) async {
+    try {
+      final res = await _channel.invokeMethod('get_tmdb_discover', {
+        'type': type,
+        'params': params,
+        'page': page,
+        'language': language,
+      });
+
+      final jsonString = _asJsonString(res);
+      if (jsonString == null) return [];
+      logJson('discover_${type}_$page', jsonString, tag: 'StreamEngine');
+      final list = jsonDecode(jsonString) as List;
+      return list.map((e) => StreamItem.fromJson(e)).toList();
+    } catch (e, st) {
+      logE('discover failed', tag: 'StreamEngine', error: e, stackTrace: st);
+      return [];
+    }
+  }
+
   Future<List<StreamItem>> search(String query, {String language = 'en', int page = 1}) async {
     try {
       final res = await _channel.invokeMethod('search', {
@@ -98,6 +142,42 @@ class StreamEngineService {
     } catch (e, st) {
       logE('get_episodes failed', tag: 'StreamEngine', error: e, stackTrace: st);
       return [];
+    }
+  }
+
+  Future<StreamGenre?> getGenre(String id, {int page = 1, String language = 'en'}) async {
+    try {
+      final res = await _channel.invokeMethod('get_genre', {
+        'id': id,
+        'page': page,
+        'language': language,
+      });
+
+      final jsonString = _asJsonString(res);
+      if (jsonString == null) return null;
+      logJson('get_genre', jsonString, tag: 'StreamEngine');
+      return StreamGenre.fromJson(jsonDecode(jsonString));
+    } catch (e, st) {
+      logE('get_genre failed', tag: 'StreamEngine', error: e, stackTrace: st);
+      return null;
+    }
+  }
+
+  Future<StreamPeople?> getPeople(String id, {int page = 1, String language = 'en'}) async {
+    try {
+      final res = await _channel.invokeMethod('get_people', {
+        'id': id,
+        'page': page,
+        'language': language,
+      });
+
+      final jsonString = _asJsonString(res);
+      if (jsonString == null) return null;
+      logJson('get_people', jsonString, tag: 'StreamEngine');
+      return StreamPeople.fromJson(jsonDecode(jsonString));
+    } catch (e, st) {
+      logE('get_people failed', tag: 'StreamEngine', error: e, stackTrace: st);
+      return null;
     }
   }
 

@@ -5,6 +5,7 @@ import '../models/streamengine/stream_models.dart';
 import '../services/streamengine_service.dart';
 import '../widgets/common/status_widgets.dart';
 import '../screens/stream_player_screen.dart';
+import '../screens/person_screen.dart';
 import '../utils/extensions.dart';
 
 class ContentDetailScreen extends StatefulWidget {
@@ -588,32 +589,80 @@ class _EpisodeTileState extends State<_EpisodeTile> {
   }
 }
 
-class _CastCard extends StatelessWidget {
+class _CastCard extends StatefulWidget {
   final StreamPeople person;
   const _CastCard({required this.person});
 
   @override
+  State<_CastCard> createState() => _CastCardState();
+}
+
+class _CastCardState extends State<_CastCard> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 70,
-      margin: const EdgeInsets.only(right: 12),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundImage: person.image != null ? NetworkImage(person.image!) : null,
-            backgroundColor: const Color(0xFF1A1A2E),
-            child: person.image == null ? const Icon(Icons.person, color: Colors.grey) : null,
+    return Focus(
+      onFocusChange: (v) => setState(() => _focused = v),
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select || event.logicalKey == LogicalKeyboardKey.enter)) {
+          _openPerson();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: _openPerson,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 76,
+          margin: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          decoration: BoxDecoration(
+            color: _focused ? Colors.white.withOpacity(0.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _focused ? Colors.blueAccent : Colors.transparent,
+              width: 1.5,
+            ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            person.name,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundImage: widget.person.image != null ? NetworkImage(widget.person.image!) : null,
+                backgroundColor: const Color(0xFF1A1A2E),
+                child: widget.person.image == null ? const Icon(Icons.person, color: Colors.grey) : null,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.person.name,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _focused ? Colors.white : Colors.white70,
+                  fontSize: 10,
+                  fontWeight: _focused ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  void _openPerson() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PersonScreen(
+          personId: widget.person.id,
+          initialName: widget.person.name,
+        ),
       ),
     );
   }

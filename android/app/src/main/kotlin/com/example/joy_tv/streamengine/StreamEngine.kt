@@ -136,6 +136,36 @@ class StreamEngine(private val scope: CoroutineScope) : MethodChannel.MethodCall
                     }
                 }
             }
+            "get_tmdb_list" -> {
+                val endpoint = call.argument<String>("endpoint") ?: return result.error("INVALID_ARG", "Endpoint required", null)
+                val language = call.argument<String>("language") ?: "en"
+                val page = call.argument<Int>("page") ?: 1
+                scope.launch {
+                    try {
+                        val provider = TmdbProvider(language)
+                        val sanitized = endpoint.removePrefix("/")
+                        val list = withContext(Dispatchers.IO) { provider.getGenericList(sanitized, page) }
+                        result.success(gson.toJson(list))
+                    } catch (e: Exception) {
+                        result.error("PROVIDER_ERROR", e.message, null)
+                    }
+                }
+            }
+            "get_tmdb_discover" -> {
+                val type = call.argument<String>("type") ?: "movie"
+                val params = call.argument<Map<String, String>>("params") ?: emptyMap()
+                val language = call.argument<String>("language") ?: "en"
+                val page = call.argument<Int>("page") ?: 1
+                scope.launch {
+                    try {
+                        val provider = TmdbProvider(language)
+                        val list = withContext(Dispatchers.IO) { provider.discover(type, params, page) }
+                        result.success(gson.toJson(list))
+                    } catch (e: Exception) {
+                        result.error("PROVIDER_ERROR", e.message, null)
+                    }
+                }
+            }
             "get_episodes" -> {
                 val seasonId = call.argument<String>("seasonId") ?: return result.error("INVALID_ARG", "SeasonID required", null)
                 val language = call.argument<String>("language") ?: "en"
@@ -144,6 +174,34 @@ class StreamEngine(private val scope: CoroutineScope) : MethodChannel.MethodCall
                         val provider = TmdbProvider(language)
                         val episodes = withContext(Dispatchers.IO) { provider.getEpisodesBySeason(seasonId) }
                         result.success(gson.toJson(episodes))
+                    } catch (e: Exception) {
+                        result.error("PROVIDER_ERROR", e.message, null)
+                    }
+                }
+            }
+            "get_genre" -> {
+                val id = call.argument<String>("id") ?: return result.error("INVALID_ARG", "ID required", null)
+                val page = call.argument<Int>("page") ?: 1
+                val language = call.argument<String>("language") ?: "en"
+                scope.launch {
+                    try {
+                        val provider = TmdbProvider(language)
+                        val genreDetails = withContext(Dispatchers.IO) { provider.getGenre(id, page) }
+                        result.success(gson.toJson(genreDetails))
+                    } catch (e: Exception) {
+                        result.error("PROVIDER_ERROR", e.message, null)
+                    }
+                }
+            }
+            "get_people" -> {
+                val id = call.argument<String>("id") ?: return result.error("INVALID_ARG", "ID required", null)
+                val page = call.argument<Int>("page") ?: 1
+                val language = call.argument<String>("language") ?: "en"
+                scope.launch {
+                    try {
+                        val provider = TmdbProvider(language)
+                        val peopleDetails = withContext(Dispatchers.IO) { provider.getPeople(id, page) }
+                        result.success(gson.toJson(peopleDetails))
                     } catch (e: Exception) {
                         result.error("PROVIDER_ERROR", e.message, null)
                     }

@@ -1,26 +1,26 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-
-import '../models/iptv_channel.dart';
-import '../services/playlist_cache_service.dart';
-import '../services/playlist_merge_service.dart';
-import 'playlist_sync_screen.dart';
+import 'package:http/http.dart' as http;
 import 'package:android_tv_text_field/native_textfield_tv.dart';
 
+import '../models/iptv_channel.dart';
+import '../services/m3u_parser.dart';
 import '../theme/app_theme.dart';
 import '../widgets/home/home_sidebar.dart';
 import '../widgets/home/home_header.dart';
 import '../widgets/home/home_search_bar.dart';
 import '../widgets/home/channel_grid.dart';
 import '../widgets/home/bottom_bar_button.dart';
-import '../widgets/home/playlist_picker_sheet.dart';
 import '../widgets/common/status_widgets.dart';
 import '../widgets/home/category_list.dart';
+import '../widgets/home/tv_live_layout.dart';
 import '../widgets/discovery/discovery_body.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const _kMobileBreak  = 600.0;
+const _kMobileBreak    = 600.0;
+const _kPlaylistUrl    =
+    'https://raw.githubusercontent.com/ikku47/joy_tv/main/assets/default_playlist.m3u8';
 
 // ─── Home Screen ─────────────────────────────────────────────────────────────
 
@@ -31,59 +31,50 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  final PlaylistCacheService _cacheService = PlaylistCacheService();
-  final PlaylistMergeService _mergeService = PlaylistMergeService();
-  final NativeTextFieldController _searchController = NativeTextFieldController();
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  // Mobile search (NativeTextField)
+  final NativeTextFieldController _searchController =
+      NativeTextFieldController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
-  List<IPTVPlaylistSource> _sources = [];
-  List<IPTVChannel> _channels = [];
+  List<IPTVChannel> _channels         = [];
   List<IPTVChannel> _filteredChannels = [];
-  List<String> _categories = [];
+  List<String> _categories            = [];
 
-  bool _isLoading = true;
-  bool _isSearchFocused = false;
+  bool _isLoading        = true;
+  bool _isSearchFocused  = false;
   String _selectedCategory = 'All';
-  String? _selectedSourceId;
-  int _selectedNavIndex = 0;
-  String _searchQuery = '';
-  Timer? _searchDebounce;
+  int _selectedNavIndex    = 0;
+  String _searchQuery      = '';
 
-  static final _unifiedSource = IPTVPlaylistSource(
-    id: 'unified',
-    name: 'My Unified Playlist (Verified)',
-    url: '', 
-  );
+  // TV search state (passed into TvLiveLayout)
+  String _tvSearchQuery = '';
+
+  Timer? _searchDebounce;
 
   // Nav items shared across sidebar / bottom bar
   static const _navItems = [
-    HomeNavItem(icon: Icons.live_tv_rounded,   label: 'Live'),
-    HomeNavItem(icon: Icons.movie_rounded,     label: 'Movies'),
-    HomeNavItem(icon: Icons.tv_rounded,        label: 'Series'),
-    HomeNavItem(icon: Icons.star_rounded,      label: 'Favorites'),
-    HomeNavItem(icon: Icons.settings_rounded,  label: 'Settings'),
+    HomeNavItem(icon: Icons.live_tv_rounded,  label: 'Live'),
+    HomeNavItem(icon: Icons.movie_rounded,    label: 'Movies'),
+    HomeNavItem(icon: Icons.tv_rounded,       label: 'Series'),
+    HomeNavItem(icon: Icons.star_rounded,     label: 'Favorites'),
+    HomeNavItem(icon: Icons.settings_rounded, label: 'Settings'),
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    _loadPlaylist();
     _searchFocusNode.addListener(_onSearchFocusChange);
-    
-    // Using a listener on the controller is more reliable for Android TV native text fields
+
     _searchController.addListener(() {
-      final String currentQuery = _searchController.text.toLowerCase().trim();
-      if (_searchQuery != currentQuery) {
+      final q = _searchController.text.toLowerCase().trim();
+      if (_searchQuery != q) {
         _searchDebounce?.cancel();
         _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            setState(() {
-              _searchQuery = currentQuery;
-              _filterChannels();
-            });
-          }
+          if (mounted) setState(() { _searchQuery = q; _filterChannels(); });
         });
       }
     });
@@ -91,9 +82,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   void _onSearchFocusChange() {
     final focused = _searchFocusNode.hasFocus;
-    if (focused != _isSearchFocused) {
-      setState(() => _isSearchFocused = focused);
-    }
+    if (focused != _isSearchFocused) setState(() => _isSearchFocused = focused);
   }
 
   @override
@@ -107,95 +96,84 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  // ── Data loading ────────────────────────────────────────────────────────────
 
-  // ── Data ───────────────────────────────────────────────────────────────────
+  Future<void> _loadPlaylist() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.get(Uri.parse(_kPlaylistUrl));
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        _applyChannels(M3UParser.parse(response.body));
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-  void _filterChannels() {
-    // Filter from the full source list
+  void _applyChannels(List<IPTVChannel> channels) {
+    final categoriesSet = <String>{};
+    for (final ch in channels) {
+      final g = ch.group?.trim();
+      categoriesSet.add((g != null && g.isNotEmpty) ? g : 'Uncategorized');
+    }
+    final sorted = categoriesSet.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    setState(() {
+      _channels          = channels;
+      _categories        = ['All', ...sorted];
+      _selectedCategory  = 'All';
+      _isLoading         = false;
+    });
+    _filterChannels();
+  }
+
+  void _filterChannels({String? searchOverride}) {
+    final q = searchOverride ?? _searchQuery;
     Iterable<IPTVChannel> filtered = _channels;
 
-    // 1. Category filter
     if (_selectedCategory != 'All') {
       filtered = filtered.where((ch) {
-        final group = ch.group?.trim();
-        final effectiveGroup = (group != null && group.isNotEmpty) ? group : 'Uncategorized';
-        return effectiveGroup == _selectedCategory;
+        final g = ch.group?.trim();
+        return ((g != null && g.isNotEmpty) ? g : 'Uncategorized') ==
+            _selectedCategory;
       });
     }
 
-    // 2. Search query filter
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((ch) {
-        // Search in name and group
-        final nameMatch = ch.name.toLowerCase().contains(_searchQuery);
-        final groupMatch = ch.group?.toLowerCase().contains(_searchQuery) ?? false;
-        return nameMatch || groupMatch;
-      });
+    if (q.isNotEmpty) {
+      filtered = filtered.where((ch) =>
+          ch.name.toLowerCase().contains(q) ||
+          (ch.group?.toLowerCase().contains(q) ?? false));
     }
 
     _filteredChannels = filtered.toList();
   }
 
+  // ── TV search (propagated into TvLiveLayout) ────────────────────────────────
 
-  Future<void> _loadInitialData() async {
-    final sources = await _cacheService.getSources();
-    final hasUnified = await _mergeService.hasLocalPlaylist();
-    
-    if (!mounted) return;
-    setState(() {
-      _sources = hasUnified ? [_unifiedSource, ...sources] : sources;
-      if (_sources.isNotEmpty) _selectedSourceId = _sources.first.id;
-    });
-    
-    if (_sources.isNotEmpty) {
-      if (hasUnified) {
-        await _loadChannels(_unifiedSource);
-      } else {
-        await _loadChannels(_sources.first);
-      }
-    }
-  }
-
-  Future<void> _loadChannels(IPTVPlaylistSource source) async {
-    setState(() => _isLoading = true);
-    
-    List<IPTVChannel> channels;
-    if (source.id == 'unified') {
-      channels = await _mergeService.getLocalPlaylist();
-    } else {
-      channels = await _cacheService.fetchPlaylist(source);
-    }
-    
-    if (!mounted) return;
-    setState(() {
-      _channels = channels;
-
-      final Set<String> categoriesSet = {};
-      for (final ch in channels) {
-        final group = ch.group?.trim();
-        if (group != null && group.isNotEmpty) {
-          categoriesSet.add(group);
-        } else {
-          categoriesSet.add('Uncategorized');
-        }
-      }
-      final sortedCategories = categoriesSet.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-      _categories = ['All', ...sortedCategories];
-      _selectedCategory = 'All';
-
-      _filterChannels();
-      _isLoading = false;
+  /// Called by TvLiveLayout when the user types in the TV search bar.
+  void _onTvSearch(String query) {
+    final q = query.toLowerCase().trim();
+    if (_tvSearchQuery == q) return;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _tvSearchQuery   = q;
+        _searchQuery     = q;   // reuse same filter logic
+        _filterChannels(searchOverride: q);
+      });
     });
   }
 
-  void _triggerManualSync() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const PlaylistSyncScreen(manualTrigger: true),
-      ),
-    );
+  void _onTvSearchClear() {
+    setState(() {
+      _tvSearchQuery = '';
+      _searchQuery   = '';
+      _filterChannels(searchOverride: '');
+    });
   }
-
 
   void _onNavTap(int index) {
     if (index == _selectedNavIndex) return;
@@ -213,11 +191,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           backgroundColor: AppTheme.backgroundColor,
           body: Row(
             children: [
-              if (!isMobile) HomeSidebar(
-                items: _navItems,
-                selectedIndex: _selectedNavIndex,
-                onTap: _onNavTap,
-              ),
+              if (!isMobile)
+                HomeSidebar(
+                  items: _navItems,
+                  selectedIndex: _selectedNavIndex,
+                  onTap: _onNavTap,
+                ),
               Expanded(child: _buildBody(isMobile)),
             ],
           ),
@@ -240,8 +219,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         child: SizedBox(
           height: 56,
           child: Row(
-            children: List.generate(_navItems.length - 1, (i) {  // hide Settings in bottom bar
-              final item = _navItems[i];
+            children: List.generate(_navItems.length - 1, (i) {
+              final item    = _navItems[i];
               final selected = _selectedNavIndex == i;
               return Expanded(
                 child: BottomBarButton(
@@ -258,42 +237,38 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // ── Main body ──────────────────────────────────────────────────────────────
+  // ── Body ───────────────────────────────────────────────────────────────────
 
   Widget _buildBody(bool isMobile) {
     final hPad = isMobile ? 16.0 : 28.0;
 
+    // TV Live tab: full-height 3-column layout with no extra header
+    if (!isMobile && _selectedNavIndex == 0) {
+      return _buildMainContent(isMobile, hPad);
+    }
+
+    // All other tabs: header overlay + content
     return Stack(
       children: [
-        // Content Area
-        Positioned.fill(
-          child: _buildMainContent(isMobile, hPad),
-        ),
-
-        // Header (Overlay)
+        Positioned.fill(child: _buildMainContent(isMobile, hPad)),
         Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
+          top: 0, left: 0, right: 0,
           child: Container(
             decoration: BoxDecoration(
               gradient: _selectedNavIndex == 1 || _selectedNavIndex == 2
                   ? LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.7),
-                        Colors.transparent,
-                      ],
+                      colors: [Colors.black.withOpacity(0.7), Colors.transparent],
                     )
                   : null,
             ),
             child: HomeHeader(
               isMobile: isMobile,
               navIndex: _selectedNavIndex,
-              sources: _sources,
-              selectedSourceId: _selectedSourceId,
-              onSourcePick: _showPlaylistPicker,
+              sources: const [],
+              selectedSourceId: null,
+              onSourcePick: () {},
               hPad: hPad,
             ),
           ),
@@ -302,13 +277,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+  // ── Main content ───────────────────────────────────────────────────────────
+
   Widget _buildMainContent(bool isMobile, double hPad) {
     if (_selectedNavIndex == 0) {
-      // Live TV / Search / Grid logic...
+      // ── Android TV: 3-column layout ──────────────────────────────────────
+      if (!isMobile) {
+        return TvLiveLayout(
+          categories: _categories,
+          channels: _filteredChannels,
+          allChannels: _channels,
+          selectedCategory: _selectedCategory,
+          isLoading: _isLoading,
+          searchQuery: _tvSearchQuery,
+          onCategorySelected: (cat) {
+            setState(() { _selectedCategory = cat; _filterChannels(); });
+          },
+          onSearch: _onTvSearch,
+          onSearchClear: _onTvSearchClear,
+        );
+      }
+
+      // ── Mobile: search + category chips + grid ───────────────────────────
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: isMobile ? 110 : 100), // Header space
+          const SizedBox(height: 110),
           Padding(
             padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
             child: HomeSearchBar(
@@ -332,11 +326,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: CategoryList(
                 categories: _categories,
                 selectedCategory: _selectedCategory,
-                onCategorySelected: (category) {
-                  setState(() {
-                    _selectedCategory = category;
-                    _filterChannels();
-                  });
+                onCategorySelected: (cat) {
+                  setState(() { _selectedCategory = cat; _filterChannels(); });
                 },
               ),
             ),
@@ -344,8 +335,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             Padding(
               padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 10),
               child: Text(
-                '${_filteredChannels.length} channels' +
-                    (_selectedCategory != 'All' ? ' in $_selectedCategory' : ''),
+                '${_filteredChannels.length} channels'
+                    '${_selectedCategory != 'All' ? ' in $_selectedCategory' : ''}',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.white.withOpacity(0.35),
@@ -367,31 +358,39 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
         ],
       );
-    } else if (_selectedNavIndex == 1) {
+    }
+
+    if (_selectedNavIndex == 1) {
       return DiscoveryBody(
         key: const ValueKey('discovery-movies'),
         isMobile: isMobile,
         hPad: hPad,
-        section: "movies",
+        section: 'movies',
       );
-    } else if (_selectedNavIndex == 2) {
+    }
+
+    if (_selectedNavIndex == 2) {
       return DiscoveryBody(
         key: const ValueKey('discovery-series'),
         isMobile: isMobile,
         hPad: hPad,
-        section: "series",
+        section: 'series',
       );
-    } else if (_selectedNavIndex == 4) {
+    }
+
+    if (_selectedNavIndex == 4) {
       return Column(
         children: [
           SizedBox(height: isMobile ? 110 : 100),
           Expanded(child: _buildSettings(hPad)),
         ],
       );
-    } else {
-      return const Center(child: ComingSoon());
     }
+
+    return const Center(child: ComingSoon());
   }
+
+  // ── Settings ───────────────────────────────────────────────────────────────
 
   Widget _buildSettings(double hPad) {
     return SingleChildScrollView(
@@ -409,27 +408,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 32),
           _buildSettingsSection(
-            title: 'Playlist Synchronization',
-            description: 'Combine all sources into one verified playlist. This process removes non-working streams.',
-            icon: Icons.sync_rounded,
-            action: ElevatedButton(
-              onPressed: _triggerManualSync,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Update Unified Playlist'),
+            title: 'Playlist Source',
+            description: 'Channels are loaded from the official Joy TV playlist hosted on GitHub.',
+            icon: Icons.cloud_done_rounded,
+            action: Text(
+              'Auto-managed',
+              style: TextStyle(color: Colors.white.withOpacity(0.4)),
             ),
           ),
           const SizedBox(height: 24),
           _buildSettingsSection(
             title: 'App Version',
-            description: 'Current version: 1.2.0',
+            description: 'Current version: 1.3.0',
             icon: Icons.info_outline_rounded,
             action: Text(
-              'Steady',
+              'Stable',
               style: TextStyle(color: Colors.white.withOpacity(0.4)),
             ),
           ),
@@ -488,27 +481,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           const SizedBox(width: 20),
           action,
         ],
-      ),
-    );
-  }
-
-
-  // ── Playlist picker ────────────────────────────────────────────────────────
-
-  void _showPlaylistPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => PlaylistPickerSheet(
-        sources: _sources,
-        selectedId: _selectedSourceId,
-        onSelect: (source) {
-          setState(() => _selectedSourceId = source.id);
-          _loadChannels(source);
-        },
       ),
     );
   }
