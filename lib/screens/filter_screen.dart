@@ -10,6 +10,7 @@ class FilterScreen extends StatefulWidget {
   final String? initialGenreId;
   final String initialLanguage;
   final String? initialYear;
+  final String? initialPlatformId;
 
   const FilterScreen({
     super.key,
@@ -17,6 +18,7 @@ class FilterScreen extends StatefulWidget {
     this.initialGenreId,
     this.initialLanguage = 'en',
     this.initialYear,
+    this.initialPlatformId,
   });
 
   @override
@@ -31,6 +33,7 @@ class _FilterScreenState extends State<FilterScreen> {
   String? _currentGenreId;
   late String _currentLang;
   String? _currentYear;
+  String? _currentPlatformId;
 
   List<StreamItem> _items = [];
   bool _isLoading = false;
@@ -44,6 +47,7 @@ class _FilterScreenState extends State<FilterScreen> {
     _currentGenreId = widget.initialGenreId;
     _currentLang = widget.initialLanguage;
     _currentYear = widget.initialYear;
+    _currentPlatformId = widget.initialPlatformId;
 
     _scrollController.addListener(_onScroll);
     _loadData(refresh: true);
@@ -78,6 +82,10 @@ class _FilterScreenState extends State<FilterScreen> {
         } else {
           params['first_air_date_year'] = _currentYear!;
         }
+      }
+      if (_currentPlatformId != null) {
+        params['with_watch_providers'] = _currentPlatformId!;
+        params['watch_region'] = 'US';
       }
 
       final results = await _service.discover(
@@ -157,6 +165,9 @@ class _FilterScreenState extends State<FilterScreen> {
     final genreLabel = TmdbConfig.homeGenres.firstWhere((g) => g['id']?.toString() == _currentGenreId, orElse: () => {'name': 'All'})['name'] as String;
     final langLabel = TmdbConfig.languages.firstWhere((l) => l['id'] == _currentLang, orElse: () => {'name': 'All'})['name'] as String;
     final yearLabel = _currentYear ?? 'All';
+    final platformLabel = _currentPlatformId == null 
+        ? 'All' 
+        : _getPlatformName(_currentPlatformId!);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -211,6 +222,24 @@ class _FilterScreenState extends State<FilterScreen> {
                       }
                     });
                   }),
+                  _buildFilterChip('Platform', platformLabel, () {
+                    final platforms = [
+                      {'id': null, 'name': 'All'},
+                      {'id': TmdbConfig.netflixId.toString(), 'name': 'Netflix'},
+                      {'id': TmdbConfig.disneyPlusId.toString(), 'name': 'Disney+'},
+                      {'id': TmdbConfig.maxId.toString(), 'name': 'HBO Max'},
+                      {'id': TmdbConfig.appleTvPlusId.toString(), 'name': 'Apple TV+'},
+                      {'id': TmdbConfig.amazonPrimeId.toString(), 'name': 'Amazon Prime'},
+                      {'id': TmdbConfig.huluId.toString(), 'name': 'Hulu'},
+                      {'id': TmdbConfig.paramountPlusId.toString(), 'name': 'Paramount+'},
+                      {'id': TmdbConfig.crunchyrollId.toString(), 'name': 'Crunchyroll'},
+                    ];
+                    _openSelectionDialog('Select Platform', platforms, _currentPlatformId, (v) {
+                      if (v != _currentPlatformId) {
+                        setState(() { _currentPlatformId = v; _loadData(refresh: true); });
+                      }
+                    });
+                  }),
                 ],
               ),
             ),
@@ -242,6 +271,18 @@ class _FilterScreenState extends State<FilterScreen> {
         ),
       ),
     );
+  }
+
+  String _getPlatformName(String id) {
+    if (id == TmdbConfig.netflixId.toString()) return 'Netflix';
+    if (id == TmdbConfig.disneyPlusId.toString()) return 'Disney+';
+    if (id == TmdbConfig.maxId.toString()) return 'HBO Max';
+    if (id == TmdbConfig.appleTvPlusId.toString()) return 'Apple TV+';
+    if (id == TmdbConfig.amazonPrimeId.toString()) return 'Amazon Prime';
+    if (id == TmdbConfig.huluId.toString()) return 'Hulu';
+    if (id == TmdbConfig.paramountPlusId.toString()) return 'Paramount+';
+    if (id == TmdbConfig.crunchyrollId.toString()) return 'Crunchyroll';
+    return 'All';
   }
 }
 

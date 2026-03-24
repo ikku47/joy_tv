@@ -178,6 +178,10 @@ class _DiscoveryBodyState extends State<DiscoveryBody> {
               if (index == _categories!.length + 1) {
                 return Column(
                   children: [
+                    _PlatformRow(
+                      hPad: widget.hPad,
+                      currentType: widget.section == 'series' ? 'tv' : 'movie',
+                    ),
                     _LanguageRow(
                       hPad: widget.hPad,
                       currentType: widget.section == 'series' ? 'tv' : 'movie',
@@ -607,6 +611,120 @@ class _GenreChipState extends State<_GenreChip> {
             widget.genre.title,
             style: TextStyle(
               color: _isFocused ? Colors.black : Colors.white,
+              fontWeight: _isFocused ? FontWeight.w800 : FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Special Platform Selection Row ──────────────────────────────────────────
+
+class _PlatformRow extends StatelessWidget {
+  final double hPad;
+  final String currentType;
+
+  const _PlatformRow({required this.hPad, required this.currentType});
+
+  @override
+  Widget build(BuildContext context) {
+    final platforms = [
+      {'id': TmdbConfig.netflixId.toString(), 'name': 'Netflix'},
+      {'id': TmdbConfig.disneyPlusId.toString(), 'name': 'Disney+'},
+      {'id': TmdbConfig.maxId.toString(), 'name': 'HBO Max'},
+      {'id': TmdbConfig.appleTvPlusId.toString(), 'name': 'Apple TV+'},
+      {'id': TmdbConfig.amazonPrimeId.toString(), 'name': 'Amazon Prime'},
+      {'id': TmdbConfig.huluId.toString(), 'name': 'Hulu'},
+      {'id': TmdbConfig.paramountPlusId.toString(), 'name': 'Paramount+'},
+      {'id': TmdbConfig.crunchyrollId.toString(), 'name': 'Crunchyroll'},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 12),
+          child: const Text(
+            'Explore Platforms',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 60,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: hPad),
+            itemCount: platforms.length,
+            itemBuilder: (context, index) {
+              final p = platforms[index];
+              return _PlatformChip(
+                name: p['name']!,
+                id: p['id']!,
+                currentType: currentType,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PlatformChip extends StatefulWidget {
+  final String name;
+  final String id;
+  final String currentType;
+
+  const _PlatformChip({required this.name, required this.id, required this.currentType});
+
+  @override
+  State<_PlatformChip> createState() => _PlatformChipState();
+}
+
+class _PlatformChipState extends State<_PlatformChip> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (f) => setState(() => _isFocused = f),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FilterScreen(
+                initialType: widget.currentType,
+                initialPlatformId: widget.id,
+              ),
+            ),
+          );
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _isFocused ? Colors.blueAccent : Colors.white.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+              color: _isFocused ? Colors.white : Colors.transparent,
+              width: _isFocused ? 2 : 1,
+            ),
+          ),
+          child: Text(
+            widget.name,
+            style: TextStyle(
+              color: Colors.white,
               fontWeight: _isFocused ? FontWeight.w800 : FontWeight.w600,
               fontSize: 15,
             ),

@@ -22,28 +22,47 @@ class TmdbConfig {
     {'id': 37, 'name': 'Western'}
   ];
 
+  // Watch Provider IDs
+  static const netflixId = 8;
+  static const disneyPlusId = 337;
+  static const appleTvPlusId = 2;
+  static const amazonPrimeId = 119; // Amazon Prime Video
+  static const maxId = 1899; // Formerly HBO Max
+  static const paramountPlusId = 531;
+  static const peacockId = 386;
+  static const huluId = 15;
+  static const crunchyrollId = 283;
+  static const tubiId = 73;
+
   static const rowConfig = {
     'home': [
       {'title': 'Trending This Week', 'endpoint': '/trending/all/week', 'icon': 'Flame'},
       {'title': 'Popular Movies', 'endpoint': '/movie/popular', 'icon': 'Clapperboard'},
       {'title': 'Popular TV Shows', 'endpoint': '/tv/popular', 'icon': 'Tv'},
+      {'title': 'Netflix Originals', 'endpoint': '/discover/movie?with_watch_providers=$netflixId&watch_region=US', 'icon': 'Play'},
       {'title': 'Top Rated Movies', 'endpoint': '/movie/top_rated', 'icon': 'Star'},
-      {'title': 'Now Playing', 'endpoint': '/movie/now_playing', 'icon': 'Theater'},
-      {'title': 'Airing Today', 'endpoint': '/tv/airing_today', 'icon': 'Radio'},
-      {'title': 'Top Rated TV', 'endpoint': '/tv/top_rated', 'icon': 'Trophy'},
-      {'title': 'Upcoming Movies', 'endpoint': '/movie/upcoming', 'icon': 'Calendar'},
     ],
     'movies': [
-      {'title': 'Popular Movies', 'endpoint': '/movie/popular', 'icon': 'Clapperboard'},
-      {'title': 'Top Rated', 'endpoint': '/movie/top_rated', 'icon': 'Star'},
-      {'title': 'Now Playing', 'endpoint': '/movie/now_playing', 'icon': 'Theater'},
+      {'title': 'Trending Movies', 'endpoint': '/trending/movie/week', 'icon': 'Flame'},
+      {'title': 'Popular on Netflix', 'endpoint': '/discover/movie?with_watch_providers=$netflixId&watch_region=US', 'icon': 'Movie'},
+      {'title': 'Disney+ Favorites', 'endpoint': '/discover/movie?with_watch_providers=$disneyPlusId&watch_region=US', 'icon': 'Star'},
+      {'title': 'Apple TV+ Originals', 'endpoint': '/discover/movie?with_watch_providers=$appleTvPlusId&watch_region=US', 'icon': 'Laptop'},
+      {'title': 'Max Originals', 'endpoint': '/discover/movie?with_watch_providers=$maxId&watch_region=US', 'icon': 'Tv'},
+      {'title': 'Amazon Prime', 'endpoint': '/discover/movie?with_watch_providers=$amazonPrimeId&watch_region=US', 'icon': 'ShoppingBag'},
+      {'title': 'Paramount+', 'endpoint': '/discover/movie?with_watch_providers=$paramountPlusId&watch_region=US', 'icon': 'Video'},
       {'title': 'Upcoming', 'endpoint': '/movie/upcoming', 'icon': 'Calendar'},
+      {'title': 'Top Rated', 'endpoint': '/movie/top_rated', 'icon': 'Star'},
     ],
     'series': [
+      {'title': 'Trending Series', 'endpoint': '/trending/tv/week', 'icon': 'Flame'},
+      {'title': 'Popular on Netflix', 'endpoint': '/discover/tv?with_watch_providers=$netflixId&watch_region=US', 'icon': 'Tv'},
+      {'title': 'Disney+ Originals', 'endpoint': '/discover/tv?with_watch_providers=$disneyPlusId&watch_region=US', 'icon': 'Star'},
+      {'title': 'Max Hits', 'endpoint': '/discover/tv?with_watch_providers=$maxId&watch_region=US', 'icon': 'Monitor'},
+      {'title': 'Apple TV+ Series', 'endpoint': '/discover/tv?with_watch_providers=$appleTvPlusId&watch_region=US', 'icon': 'Laptop'},
+      {'title': 'Hulu Originals', 'endpoint': '/discover/tv?with_watch_providers=$huluId&watch_region=US', 'icon': 'MonitorPlay'},
+      {'title': 'Anime on Crunchyroll', 'endpoint': '/discover/tv?with_watch_providers=$crunchyrollId&watch_region=US', 'icon': 'Ghost'},
       {'title': 'Popular Shows', 'endpoint': '/tv/popular', 'icon': 'Tv'},
       {'title': 'Top Rated', 'endpoint': '/tv/top_rated', 'icon': 'Star'},
-      {'title': 'Airing Today', 'endpoint': '/tv/airing_today', 'icon': 'Radio'},
-      {'title': 'On The Air', 'endpoint': '/tv/on_the_air', 'icon': 'RadioTower'},
     ],
   };
 
