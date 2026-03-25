@@ -7,14 +7,13 @@ import '../services/device_profile_service.dart';
 import '../utils/log_util.dart';
 import '../utils/orientation_policy.dart';
 import '../widgets/player/buffering_indicator.dart';
-import '../widgets/player/error_overlay.dart';
 import '../widgets/player/player_osd.dart';
 import '../widgets/player/channel_list_panel.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const _kOverlayDuration  = Duration(seconds: 5);
-const _kFadeDuration     = Duration(milliseconds: 280);
+const _kOverlayDuration = Duration(seconds: 5);
+const _kFadeDuration = Duration(milliseconds: 280);
 
 // ─── Player Screen ────────────────────────────────────────────────────────────
 
@@ -56,6 +55,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   final ScrollController _listScrollController = ScrollController();
   bool _isHandheldDevice = true;
   bool _orientationProfileApplied = false;
+  bool _hasInitializedSource = false;
+  int _sourceLoadToken = 0;
+  Timer? _orientationTimer;
 
   @override
   void initState() {
@@ -63,10 +65,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     _currentIndex = widget.initialIndex;
     _now = DateTime.now();
 
-    _clockTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) { if (mounted) setState(() => _now = DateTime.now()); },
-    );
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
 
     _initPlayer();
     _resetOverlayTimer();
@@ -98,7 +99,14 @@ class _PlayerScreenState extends State<PlayerScreen>
       'PlayerScreen profile: isTv=$isTv fallbackHandheld=$fallbackHandheld finalHandheld=$_isHandheldDevice',
       tag: 'Orientation',
     );
-    OrientationPolicy.enterPlayback(source: 'PlayerScreen');
+
+    // Delay the global orientation change until after the push transition so
+    // the underlying live-TV listing route doesn't rotate first.
+    _orientationTimer?.cancel();
+    _orientationTimer = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      OrientationPolicy.enterPlayback(source: 'PlayerScreen');
+    });
   }
 
   @override
@@ -107,6 +115,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       isHandheldDevice: _isHandheldDevice,
       source: 'PlayerScreen',
     );
+    _orientationTimer?.cancel();
+    _silenceAndPausePlayer();
     _playerController.dispose();
     _overlayTimer?.cancel();
     _clockTimer.cancel();
@@ -146,20 +156,27 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (!mounted) return;
     switch (event.betterPlayerEventType) {
       case BetterPlayerEventType.exception:
+        _hasInitializedSource = false;
         setState(() {
           _isLoading = false;
-          _errorMessage = event.parameters?['exception']?.toString()
-              ?? 'Stream could not be loaded.';
+          _errorMessage =
+              event.parameters?['exception']?.toString() ??
+              'Stream could not be loaded.';
         });
         break;
       case BetterPlayerEventType.initialized:
-        setState(() { _isLoading = false; _errorMessage = null; });
+        _hasInitializedSource = true;
+        setState(() {
+          _isLoading = false;
+          _errorMessage = null;
+        });
         break;
       case BetterPlayerEventType.bufferingStart:
         setState(() => _isLoading = true);
         break;
       case BetterPlayerEventType.bufferingEnd:
       case BetterPlayerEventType.play:
+        _hasInitializedSource = true;
         setState(() => _isLoading = false);
         break;
       default:
@@ -167,14 +184,56 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
+  void _silenceAndPausePlayer() {
+    if (!_hasInitializedSource) return;
+    try {
+      _playerController.setVolume(0);
+      _playerController.pause();
+    } on StateError catch (error, stackTrace) {
+      logW(
+        'Ignoring player mute/pause before initialization completed: $error',
+        tag: 'PlayerScreen',
+      );
+      logE(
+        'Mute/pause guard caught a player state error.',
+        tag: 'PlayerScreen',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      _hasInitializedSource = false;
+    }
+  }
+
   void _loadSource() {
+    final loadToken = ++_sourceLoadToken;
+    _silenceAndPausePlayer();
     _playerController.setupDataSource(
       BetterPlayerDataSource(
         BetterPlayerDataSourceType.network,
         _currentChannel.url,
         liveStream: true,
+        headers: _currentChannel.headers,
       ),
     );
+    // Restore volume after a small delay once new source starts
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted || loadToken != _sourceLoadToken) return;
+      try {
+        _playerController.setVolume(1.0);
+      } on StateError catch (error, stackTrace) {
+        logW(
+          'Skipping volume restore before source initialization completed: $error',
+          tag: 'PlayerScreen',
+        );
+        logE(
+          'Volume restore guard caught a player state error.',
+          tag: 'PlayerScreen',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    });
   }
 
   void _switchChannel(int index) {
@@ -193,8 +252,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   void _nextChannel() =>
       _switchChannel((_currentIndex + 1) % widget.channels.length);
 
-  void _prevChannel() =>
-      _switchChannel((_currentIndex - 1 + widget.channels.length) % widget.channels.length);
+  void _prevChannel() => _switchChannel(
+    (_currentIndex - 1 + widget.channels.length) % widget.channels.length,
+  );
 
   // ── Overlay timer ──────────────────────────────────────────────────────────
 
@@ -221,9 +281,10 @@ class _PlayerScreenState extends State<PlayerScreen>
   void _scrollToCurrentChannel() {
     if (!_listScrollController.hasClients) return;
     const itemHeight = 56.0;
-    final offset = (_currentIndex * itemHeight)
-        - (_listScrollController.position.viewportDimension / 2)
-        + (itemHeight / 2);
+    final offset =
+        (_currentIndex * itemHeight) -
+        (_listScrollController.position.viewportDimension / 2) +
+        (itemHeight / 2);
     _listScrollController.animateTo(
       offset.clamp(0.0, _listScrollController.position.maxScrollExtent),
       duration: const Duration(milliseconds: 300),
@@ -237,12 +298,21 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (event is! RawKeyDownEvent) return;
     final key = event.logicalKey;
 
-    if (key == LogicalKeyboardKey.arrowUp    || key == LogicalKeyboardKey.channelUp)   _prevChannel();
-    else if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.channelDown) _nextChannel();
-    else if (key == LogicalKeyboardKey.arrowLeft)  Navigator.of(context).maybePop();
-    else if (key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.enter)       _resetOverlayTimer();
-    else if (key == LogicalKeyboardKey.keyL)       setState(() => _showChannelList = !_showChannelList);
-    else                                            _resetOverlayTimer();
+    if (key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.channelUp)
+      _prevChannel();
+    else if (key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.channelDown)
+      _nextChannel();
+    else if (key == LogicalKeyboardKey.arrowLeft)
+      Navigator.of(context).maybePop();
+    else if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter)
+      _resetOverlayTimer();
+    else if (key == LogicalKeyboardKey.keyL)
+      setState(() => _showChannelList = !_showChannelList);
+    else
+      _resetOverlayTimer();
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -265,9 +335,7 @@ class _PlayerScreenState extends State<PlayerScreen>
             fit: StackFit.expand,
             children: [
               // ── Video ────────────────────────────────────────────────────
-              Center(
-                child: BetterPlayer(controller: _playerController),
-              ),
+              Center(child: BetterPlayer(controller: _playerController)),
 
               // ── Error Placeholder ────────────────────────────────────────
               if (_errorMessage != null)
@@ -281,7 +349,6 @@ class _PlayerScreenState extends State<PlayerScreen>
               // ── Buffering spinner ────────────────────────────────────────
               if (_isLoading && _errorMessage == null)
                 const BufferingIndicator(),
-
 
               // ── OSD ──────────────────────────────────────────────────────
               AnimatedOpacity(

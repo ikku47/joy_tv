@@ -115,7 +115,7 @@ class PlaylistMergeService {
     for (int i = 0; i < channels.length; i += concurrency) {
       final chunk = channels.skip(i).take(concurrency).toList();
       final results = await Future.wait(chunk.map((channel) async {
-        final isWorking = await _isUrlWorking(channel.url, client);
+        final isWorking = await _isUrlWorking(channel.url, client, headers: channel.headers);
         return isWorking ? channel : null;
       }));
       
@@ -132,16 +132,16 @@ class PlaylistMergeService {
     return workingChannels;
   }
 
-  Future<bool> _isUrlWorking(String url, http.Client client) async {
+  Future<bool> _isUrlWorking(String url, http.Client client, {Map<String, String>? headers}) async {
     try {
       final uri = Uri.parse(url);
       // Use a shorter timeout for HEAD (1.5s) to keep things moving
-      final response = await client.head(uri).timeout(const Duration(milliseconds: 1500));
+      final response = await client.head(uri, headers: headers).timeout(const Duration(milliseconds: 1500));
       if (response.statusCode >= 200 && response.statusCode < 400) return true;
       
       // Some servers block HEAD but allow GET
       // Only try GET if HEAD failed fast
-      final getResponse = await client.get(uri).timeout(const Duration(milliseconds: 1500));
+      final getResponse = await client.get(uri, headers: headers).timeout(const Duration(milliseconds: 1500));
       return getResponse.statusCode >= 200 && getResponse.statusCode < 400;
     } catch (e) {
       return false;

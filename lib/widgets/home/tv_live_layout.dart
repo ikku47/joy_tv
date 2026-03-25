@@ -11,18 +11,18 @@ import '../../screens/player_screen.dart';
 
 // ─── Column width constants ───────────────────────────────────────────────────
 const double _kCategoryColW = 180.0;
-const double _kChannelColW  = 280.0;
+const double _kChannelColW = 280.0;
 
 // ─── Item heights ─────────────────────────────────────────────────────────────
 const double _kCatItemH = 44.0;
-const double _kChItemH  = 52.0;
+const double _kChItemH = 52.0;
 
 // ─── Main 3-column TV layout ─────────────────────────────────────────────────
 
 class TvLiveLayout extends StatefulWidget {
   final List<String> categories;
-  final List<IPTVChannel> channels;       // filtered by category / search
-  final List<IPTVChannel> allChannels;    // full list for player
+  final List<IPTVChannel> channels; // filtered by category / search
+  final List<IPTVChannel> allChannels; // full list for player
   final String selectedCategory;
   final bool isLoading;
   final String searchQuery;
@@ -51,19 +51,22 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
   // Active column: 0=categories, 1=channels, 2=preview(player)
   int _activeColumn = 1;
   int _focusedCategoryIndex = 0;
-  int _focusedChannelIndex  = 0;
+  int _focusedChannelIndex = 0;
 
   final ScrollController _catScrollCtrl = ScrollController();
-  final ScrollController _chScrollCtrl  = ScrollController();
-  final FocusNode _catColFocus    = FocusNode(debugLabel: 'cat-col');
-  final FocusNode _chColFocus     = FocusNode(debugLabel: 'ch-col');
+  final ScrollController _chScrollCtrl = ScrollController();
+  final FocusNode _catColFocus = FocusNode(debugLabel: 'cat-col');
+  final FocusNode _chColFocus = FocusNode(debugLabel: 'ch-col');
   final FocusNode _searchFocusNode = FocusNode(debugLabel: 'tv-search');
   final NativeTextFieldController _searchCtrl = NativeTextFieldController();
 
   // ── Player state ─────────────────────────────────────────────────────────
   BetterPlayerController? _previewController;
-  IPTVChannel? _loadedChannel;   // which channel is actually loaded in player
-  Timer? _loadDebounce;          // debounce so rapid nav doesn't spam loads
+  IPTVChannel? _loadedChannel; // which channel is actually loaded in player
+  Timer? _loadDebounce; // debounce so rapid nav doesn't spam loads
+  bool _isOpeningFullscreen = false;
+  Timer? _doubleSelectTimer;
+  int? _pendingFullscreenIndex;
 
   @override
   void initState() {
@@ -85,7 +88,7 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
       if (idx != -1) {
         setState(() {
           _focusedCategoryIndex = idx;
-          _focusedChannelIndex  = 0;
+          _focusedChannelIndex = 0;
         });
         _scrollCatToIndex(idx);
         _scrollChToIndex(0);
@@ -101,7 +104,8 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
   @override
   void dispose() {
     _loadDebounce?.cancel();
-    _previewController?.dispose();
+    _doubleSelectTimer?.cancel();
+    _disposePreviewController();
     _catScrollCtrl.dispose();
     _chScrollCtrl.dispose();
     _catColFocus.dispose();
@@ -125,26 +129,35 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
   // ── Preview player ────────────────────────────────────────────────────────
 
   IPTVChannel? get _focusedChannel =>
-      widget.channels.isNotEmpty && _focusedChannelIndex < widget.channels.length
-          ? widget.channels[_focusedChannelIndex]
-          : null;
+      widget.channels.isNotEmpty &&
+          _focusedChannelIndex < widget.channels.length
+      ? widget.channels[_focusedChannelIndex]
+      : null;
 
   /// Debounced: wait 600 ms after last nav change before loading stream
   void _schedulePreviewLoad() {
     _loadDebounce?.cancel();
+    if (_isOpeningFullscreen) return;
     _loadDebounce = Timer(const Duration(milliseconds: 600), _loadPreview);
+  }
+
+  void _disposePreviewController() {
+    final old = _previewController;
+    _previewController = null;
+    _loadedChannel = null;
+    if (old != null) {
+      old.setVolume(0);
+      old.pause();
+      old.dispose();
+    }
   }
 
   void _loadPreview() {
     final ch = _focusedChannel;
-    if (ch == null || ch == _loadedChannel) return;
+    if (_isOpeningFullscreen || ch == null || ch == _loadedChannel) return;
 
-    // Dispose old controller FIRST — reusing and calling setupDataSource() on an
-    // already-initialized BetterPlayerController causes an IndexOutOfBoundsException
-    // in the native plugin (known better_player_plus bug).
-    final old = _previewController;
-    _previewController = null;
-    old?.dispose();
+    // Dispose old controller FIRST
+    _disposePreviewController();
 
     setState(() => _loadedChannel = ch);
 
@@ -165,6 +178,7 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
         BetterPlayerDataSourceType.network,
         ch.url,
         liveStream: true,
+        headers: ch.headers,
       ),
     );
 
@@ -196,25 +210,66 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
   // ── Column navigation ─────────────────────────────────────────────────────
 
   void _onCatFocus(int index) {
-    setState(() { _activeColumn = 0; _focusedCategoryIndex = index; });
+    setState(() {
+      _activeColumn = 0;
+      _focusedCategoryIndex = index;
+    });
     _scrollCatToIndex(index);
   }
 
   void _onCatSelected(int index) {
     widget.onCategorySelected(widget.categories[index]);
-    setState(() { _activeColumn = 1; _focusedChannelIndex = 0; });
+    setState(() {
+      _activeColumn = 1;
+      _focusedChannelIndex = 0;
+    });
     _chColFocus.requestFocus();
   }
 
   void _onChFocus(int index) {
-    setState(() { _activeColumn = 1; _focusedChannelIndex = index; });
+    setState(() {
+      _activeColumn = 1;
+      _focusedChannelIndex = index;
+    });
+    if (_pendingFullscreenIndex != index) {
+      _clearPendingFullscreen();
+    }
     _scrollChToIndex(index);
     _schedulePreviewLoad();
   }
 
   /// Navigate to preview column → go fullscreen immediately
   void _onChNavigateRight() {
+    _clearPendingFullscreen();
     _openFullscreen();
+  }
+
+  void _clearPendingFullscreen() {
+    _doubleSelectTimer?.cancel();
+    _doubleSelectTimer = null;
+    _pendingFullscreenIndex = null;
+  }
+
+  void _handleChannelActivation(int index) {
+    if (_pendingFullscreenIndex == index) {
+      _clearPendingFullscreen();
+      _openFullscreen();
+      return;
+    }
+
+    setState(() {
+      _activeColumn = 1;
+      _focusedChannelIndex = index;
+    });
+    _scrollChToIndex(index);
+    _schedulePreviewLoad();
+
+    _doubleSelectTimer?.cancel();
+    _pendingFullscreenIndex = index;
+    _doubleSelectTimer = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+      _clearPendingFullscreen();
+    });
   }
 
   void _switchToCategories() {
@@ -227,26 +282,34 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
     _chColFocus.requestFocus();
   }
 
-  void _openFullscreen() {
+  Future<void> _openFullscreen() async {
     final ch = _focusedChannel;
-    if (ch == null) return;
+    if (ch == null || _isOpeningFullscreen) return;
 
-    // Pause preview before going fullscreen to free resources
-    _previewController?.pause();
+    _loadDebounce?.cancel();
+    setState(() => _isOpeningFullscreen = true);
+    _disposePreviewController();
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
 
     final globalIndex = widget.allChannels.indexOf(ch);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PlayerScreen(
-          channels: widget.allChannels,
-          initialIndex: globalIndex >= 0 ? globalIndex : 0,
+    try {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlayerScreen(
+            channels: widget.allChannels,
+            initialIndex: globalIndex >= 0 ? globalIndex : 0,
+          ),
         ),
-      ),
-    ).then((_) {
-      // Resume preview after returning
-      if (mounted) _schedulePreviewLoad();
-    });
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningFullscreen = false);
+        _clearPendingFullscreen();
+        _schedulePreviewLoad();
+      }
+    }
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -289,7 +352,7 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
                   isActiveColumn: _activeColumn == 1,
                   scrollController: _chScrollCtrl,
                   onFocusRequested: _onChFocus,
-                  onSelected: (_) => _openFullscreen(),
+                  onSelected: _handleChannelActivation,
                   onNavigateLeft: _switchToCategories,
                   onNavigateRight: _onChNavigateRight,
                   onSearch: widget.onSearch,
@@ -305,7 +368,8 @@ class _TvLiveLayoutState extends State<TvLiveLayout> {
         Expanded(
           child: _PreviewPanel(
             channel: _focusedChannel,
-            previewController: _previewController,
+            previewController: _isOpeningFullscreen ? null : _previewController,
+            isSuspended: _isOpeningFullscreen,
             onWatch: _openFullscreen,
           ),
         ),
@@ -358,7 +422,8 @@ class _CategoryColumn extends StatelessWidget {
           onNavigateRight();
           return KeyEventResult.handled;
         }
-        if (key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.enter) {
+        if (key == LogicalKeyboardKey.select ||
+            key == LogicalKeyboardKey.enter) {
           onSelected(focusedIndex);
           return KeyEventResult.handled;
         }
@@ -425,11 +490,13 @@ class _CategoryItem extends StatelessWidget {
           color: isFocused
               ? AppTheme.primaryColor.withOpacity(0.18)
               : isSelected
-                  ? AppTheme.primaryColor.withOpacity(0.08)
-                  : Colors.transparent,
+              ? AppTheme.primaryColor.withOpacity(0.08)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isFocused ? AppTheme.primaryColor.withOpacity(0.7) : Colors.transparent,
+            color: isFocused
+                ? AppTheme.primaryColor.withOpacity(0.7)
+                : Colors.transparent,
             width: 1.5,
           ),
         ),
@@ -453,12 +520,14 @@ class _CategoryItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: isFocused || isSelected ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight: isFocused || isSelected
+                      ? FontWeight.w600
+                      : FontWeight.w400,
                   color: isFocused
                       ? Colors.white
                       : isSelected
-                          ? AppTheme.primaryColor.withOpacity(0.9)
-                          : Colors.white.withOpacity(0.55),
+                      ? AppTheme.primaryColor.withOpacity(0.9)
+                      : Colors.white.withOpacity(0.55),
                 ),
               ),
             ),
@@ -565,8 +634,13 @@ class _ChannelColumn extends StatelessWidget {
           child: channels.isEmpty
               ? Center(
                   child: Text(
-                    searchQuery.isNotEmpty ? 'No results for "$searchQuery"' : 'No channels',
-                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.3)),
+                    searchQuery.isNotEmpty
+                        ? 'No results for "$searchQuery"'
+                        : 'No channels',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.3),
+                    ),
                   ),
                 )
               : Focus(
@@ -575,7 +649,9 @@ class _ChannelColumn extends StatelessWidget {
                     if (event is! KeyDownEvent) return KeyEventResult.ignored;
                     final key = event.logicalKey;
                     if (key == LogicalKeyboardKey.arrowDown) {
-                      onFocusRequested((focusedIndex + 1).clamp(0, channels.length - 1));
+                      onFocusRequested(
+                        (focusedIndex + 1).clamp(0, channels.length - 1),
+                      );
                       return KeyEventResult.handled;
                     }
                     if (key == LogicalKeyboardKey.arrowUp) {
@@ -583,7 +659,9 @@ class _ChannelColumn extends StatelessWidget {
                         onSearchFocused();
                         return KeyEventResult.handled;
                       }
-                      onFocusRequested((focusedIndex - 1).clamp(0, channels.length - 1));
+                      onFocusRequested(
+                        (focusedIndex - 1).clamp(0, channels.length - 1),
+                      );
                       return KeyEventResult.handled;
                     }
                     if (key == LogicalKeyboardKey.arrowLeft) {
@@ -594,7 +672,8 @@ class _ChannelColumn extends StatelessWidget {
                       onNavigateRight();
                       return KeyEventResult.handled;
                     }
-                    if (key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.enter) {
+                    if (key == LogicalKeyboardKey.select ||
+                        key == LogicalKeyboardKey.enter) {
                       onSelected(focusedIndex);
                       return KeyEventResult.handled;
                     }
@@ -647,10 +726,14 @@ class _ChannelRow extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: isFocused ? AppTheme.primaryColor.withOpacity(0.15) : Colors.transparent,
+            color: isFocused
+                ? AppTheme.primaryColor.withOpacity(0.15)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isFocused ? AppTheme.primaryColor.withOpacity(0.55) : Colors.transparent,
+              color: isFocused
+                  ? AppTheme.primaryColor.withOpacity(0.55)
+                  : Colors.transparent,
               width: 1.5,
             ),
           ),
@@ -682,8 +765,12 @@ class _ChannelRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12.5,
-                        fontWeight: isFocused ? FontWeight.w600 : FontWeight.w500,
-                        color: isFocused ? Colors.white : Colors.white.withOpacity(0.82),
+                        fontWeight: isFocused
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: isFocused
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.82),
                         letterSpacing: -0.1,
                       ),
                     ),
@@ -757,8 +844,11 @@ class _FallbackIcon extends StatelessWidget {
   final double size;
   const _FallbackIcon({required this.size});
   @override
-  Widget build(BuildContext context) =>
-      Icon(Icons.tv_rounded, size: size * 0.45, color: Colors.white.withOpacity(0.18));
+  Widget build(BuildContext context) => Icon(
+    Icons.tv_rounded,
+    size: size * 0.45,
+    color: Colors.white.withOpacity(0.18),
+  );
 }
 
 // ─── Preview Panel ────────────────────────────────────────────────────────────
@@ -766,11 +856,13 @@ class _FallbackIcon extends StatelessWidget {
 class _PreviewPanel extends StatelessWidget {
   final IPTVChannel? channel;
   final BetterPlayerController? previewController;
+  final bool isSuspended;
   final VoidCallback onWatch;
 
   const _PreviewPanel({
     required this.channel,
     required this.previewController,
+    required this.isSuspended,
     required this.onWatch,
   });
 
@@ -783,11 +875,18 @@ class _PreviewPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.live_tv_rounded, size: 40, color: Colors.white.withOpacity(0.1)),
+            Icon(
+              Icons.live_tv_rounded,
+              size: 40,
+              color: Colors.white.withOpacity(0.1),
+            ),
             const SizedBox(height: 12),
             Text(
               'Select a channel',
-              style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.22)),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withOpacity(0.22),
+              ),
             ),
           ],
         ),
@@ -801,6 +900,7 @@ class _PreviewPanel extends StatelessWidget {
         _EmbeddedPlayer(
           controller: previewController,
           channel: ch,
+          isSuspended: isSuspended,
           onWatch: onWatch,
         ),
 
@@ -827,7 +927,10 @@ class _PreviewPanel extends StatelessWidget {
                 // Category tag
                 if (ch.group != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(5),
@@ -850,16 +953,27 @@ class _PreviewPanel extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 if (ch.number != null)
-                  _MetaRow(icon: Icons.tag_rounded, label: 'CH', value: '${ch.number}'),
+                  _MetaRow(
+                    icon: Icons.tag_rounded,
+                    label: 'CH',
+                    value: '${ch.number}',
+                  ),
                 if (ch.tvgId != null)
-                  _MetaRow(icon: Icons.fingerprint_rounded, label: 'ID', value: ch.tvgId!),
+                  _MetaRow(
+                    icon: Icons.fingerprint_rounded,
+                    label: 'ID',
+                    value: ch.tvgId!,
+                  ),
 
                 const SizedBox(height: 16),
 
                 // ── Fullscreen hint ─────────────────────────────────────────
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.04),
                     borderRadius: BorderRadius.circular(8),
@@ -867,11 +981,18 @@ class _PreviewPanel extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.open_in_full_rounded, size: 14, color: Colors.white.withOpacity(0.35)),
+                      Icon(
+                        Icons.open_in_full_rounded,
+                        size: 14,
+                        color: Colors.white.withOpacity(0.35),
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Press  →  or  OK  for fullscreen',
-                        style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.35)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withOpacity(0.35),
+                        ),
                       ),
                     ],
                   ),
@@ -890,11 +1011,13 @@ class _PreviewPanel extends StatelessWidget {
 class _EmbeddedPlayer extends StatefulWidget {
   final BetterPlayerController? controller;
   final IPTVChannel channel;
+  final bool isSuspended;
   final VoidCallback onWatch;
 
   const _EmbeddedPlayer({
     required this.controller,
     required this.channel,
+    required this.isSuspended,
     required this.onWatch,
   });
 
@@ -904,7 +1027,7 @@ class _EmbeddedPlayer extends StatefulWidget {
 
 class _EmbeddedPlayerState extends State<_EmbeddedPlayer> {
   bool _isBuffering = true;
-  bool _hasError    = false;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -918,10 +1041,16 @@ class _EmbeddedPlayerState extends State<_EmbeddedPlayer> {
     if (old.controller != widget.controller) {
       old.controller?.removeEventsListener(_onEvent);
       widget.controller?.addEventsListener(_onEvent);
-      setState(() { _isBuffering = true; _hasError = false; });
+      setState(() {
+        _isBuffering = true;
+        _hasError = false;
+      });
     }
     if (old.channel != widget.channel) {
-      setState(() { _isBuffering = true; _hasError = false; });
+      setState(() {
+        _isBuffering = true;
+        _hasError = false;
+      });
     }
   }
 
@@ -937,13 +1066,20 @@ class _EmbeddedPlayerState extends State<_EmbeddedPlayer> {
       case BetterPlayerEventType.initialized:
       case BetterPlayerEventType.play:
       case BetterPlayerEventType.bufferingEnd:
-        if (_isBuffering || _hasError) setState(() { _isBuffering = false; _hasError = false; });
+        if (_isBuffering || _hasError)
+          setState(() {
+            _isBuffering = false;
+            _hasError = false;
+          });
         break;
       case BetterPlayerEventType.bufferingStart:
         if (!_isBuffering) setState(() => _isBuffering = true);
         break;
       case BetterPlayerEventType.exception:
-        setState(() { _isBuffering = false; _hasError = true; });
+        setState(() {
+          _isBuffering = false;
+          _hasError = true;
+        });
         break;
       default:
         break;
@@ -963,24 +1099,24 @@ class _EmbeddedPlayerState extends State<_EmbeddedPlayer> {
             fit: StackFit.expand,
             children: [
               // ── Video ───────────────────────────────────────────────────
-              if (widget.controller != null && !_hasError)
+              if (widget.controller != null &&
+                  !_hasError &&
+                  !widget.isSuspended)
                 BetterPlayer(controller: widget.controller!),
 
+              if (widget.isSuspended) Container(color: Colors.black),
+
               // ── Error fallback ───────────────────────────────────────────
-              if (_hasError)
+              if (_hasError && !widget.isSuspended)
                 _ErrorPlaceholder(channel: widget.channel),
 
               // ── Buffering indicator ──────────────────────────────────────
-              if (_isBuffering && !_hasError)
+              if (_isBuffering && !_hasError && !widget.isSuspended)
                 _BufferingOverlay(channel: widget.channel),
 
               // ── Live badge + tap overlay ────────────────────────────────
-              if (!_isBuffering && !_hasError)
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: _LiveBadge(),
-                ),
+              if (!_isBuffering && !_hasError && !widget.isSuspended)
+                Positioned(top: 8, left: 8, child: _LiveBadge()),
 
               // ── Fullscreen click area (entire player) ───────────────────
               Positioned.fill(child: Container(color: Colors.transparent)),
@@ -1084,11 +1220,18 @@ class _ErrorPlaceholder extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.signal_wifi_off_rounded, size: 32, color: Colors.white.withOpacity(0.2)),
+            Icon(
+              Icons.signal_wifi_off_rounded,
+              size: 32,
+              color: Colors.white.withOpacity(0.2),
+            ),
             const SizedBox(height: 8),
             Text(
               'Preview unavailable',
-              style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.3)),
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withOpacity(0.3),
+              ),
             ),
           ],
         ),
@@ -1102,7 +1245,11 @@ class _MetaRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  const _MetaRow({required this.icon, required this.label, required this.value});
+  const _MetaRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1114,14 +1261,21 @@ class _MetaRow extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             '$label  ',
-            style: TextStyle(fontSize: 10.5, color: Colors.white.withOpacity(0.28), fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 10.5,
+              color: Colors.white.withOpacity(0.28),
+              fontWeight: FontWeight.w500,
+            ),
           ),
           Expanded(
             child: Text(
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10.5, color: Colors.white.withOpacity(0.65)),
+              style: TextStyle(
+                fontSize: 10.5,
+                color: Colors.white.withOpacity(0.65),
+              ),
             ),
           ),
         ],

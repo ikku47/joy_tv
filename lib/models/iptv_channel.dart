@@ -6,6 +6,10 @@ class IPTVChannel {
   final String? group;
   final String? tvgId;
   final String? tvgName;
+  final Map<String, String>? headers;
+  final Map<String, String>? kodiProps;
+  final Map<String, String>? aptvProps;
+  final List<String>? extraDirectives;
 
   IPTVChannel({
     required this.name,
@@ -15,6 +19,10 @@ class IPTVChannel {
     this.group,
     this.tvgId,
     this.tvgName,
+    this.headers,
+    this.kodiProps,
+    this.aptvProps,
+    this.extraDirectives,
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +34,10 @@ class IPTVChannel {
       'group': group,
       'tvgId': tvgId,
       'tvgName': tvgName,
+      'headers': headers,
+      'kodiProps': kodiProps,
+      'aptvProps': aptvProps,
+      'extraDirectives': extraDirectives,
     };
   }
 
@@ -38,6 +50,18 @@ class IPTVChannel {
       group: json['group'],
       tvgId: json['tvgId'],
       tvgName: json['tvgName'],
+      headers: json['headers'] != null
+          ? Map<String, String>.from(json['headers'])
+          : null,
+      kodiProps: json['kodiProps'] != null
+          ? Map<String, String>.from(json['kodiProps'])
+          : null,
+      aptvProps: json['aptvProps'] != null
+          ? Map<String, String>.from(json['aptvProps'])
+          : null,
+      extraDirectives: json['extraDirectives'] != null
+          ? List<String>.from(json['extraDirectives'])
+          : null,
     );
   }
 
@@ -50,11 +74,7 @@ class IPTVPlaylistSource {
   final String name;
   final String url;
 
-  IPTVPlaylistSource({
-    required this.id,
-    required this.name,
-    required this.url,
-  });
+  IPTVPlaylistSource({required this.id, required this.name, required this.url});
 
   factory IPTVPlaylistSource.fromJson(Map<String, dynamic> json) {
     return IPTVPlaylistSource(
@@ -65,11 +85,6 @@ class IPTVPlaylistSource {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'url': url,
-    };
+    return {'id': id, 'name': name, 'url': url};
   }
 }
-

@@ -29,6 +29,36 @@ jobs:
       - name: Generate playlist
         run: |
           python scripts/combine_playlists.py
+
+      - name: Summarize generated directives
+        run: |
+          python - <<'PY'
+          import re
+          from collections import Counter
+          from pathlib import Path
+
+          path = Path("assets/default_playlist.m3u8")
+          directives = Counter()
+          for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line.startswith("#"):
+              continue
+            match = re.match(r'^(#[^:,\s]+)', line)
+            if match:
+              directives[match.group(1)] += 1
+
+          interesting = [
+            "#EXTM3U",
+            "#EXTINF",
+            "#EXTVLCOPT",
+            "#KODIPROP",
+            "#EXT-X-APP",
+            "#EXT-X-APTV-TYPE",
+            "#EXT-X-SUB-URL",
+          ]
+          for name in interesting:
+            print(f"{name}: {directives.get(name, 0)}")
+          PY
       
       - name: Check if playlist was generated
         id: check

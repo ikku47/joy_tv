@@ -1,8 +1,9 @@
 import json
-import requests
-import re
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import requests
 
 # Determine paths relative to this script's location
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -10,6 +11,45 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 PLAYLISTS_JSON = os.path.join(PROJECT_ROOT, 'assets', 'playlists.json')
 OUTPUT_M3U8 = os.path.join(PROJECT_ROOT, 'assets', 'default_playlist.m3u8')
+
+SUPPORTED_INLINE_DIRECTIVES = (
+    '#EXTVLCOPT:',
+    '#KODIPROP:',
+    '#EXT-X-APP',
+    '#EXT-X-APTV-TYPE',
+    '#EXT-X-SUB-URL',
+)
+
+
+def parse_quoted_attributes(line):
+    return {
+        match.group(1): match.group(2)
+        for match in re.finditer(r'([\w-]+)="([^"]*)"', line)
+    }
+
+
+def build_header_map(directives):
+    headers = {}
+    for directive in directives:
+        if not directive.startswith('#EXTVLCOPT:'):
+            continue
+        option = directive[len('#EXTVLCOPT:'):].strip()
+        if '=' not in option:
+            continue
+        key, value = option.split('=', 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if not value:
+            continue
+        if key in ('http-referrer', 'http-referer'):
+            headers['Referer'] = value
+        elif key == 'http-user-agent':
+            headers['User-Agent'] = value
+        elif key == 'http-origin':
+            headers['Origin'] = value
+        elif key == 'http-cookie':
+            headers['Cookie'] = value
+    return headers
 
 def parse_m3u(content):
     """
@@ -21,23 +61,28 @@ def parse_m3u(content):
     while i < len(lines):
         line = lines[i].strip()
         if line.startswith('#EXTINF:'):
-            # Extract metadata from #EXTINF line
             metadata = line[8:]
-            
-            group_match = re.search(r'group-title="([^"]+)"', metadata)
-            logo_match = re.search(r'tvg-logo="([^"]+)"', metadata)
-            id_match = re.search(r'tvg-id="([^"]+)"', metadata)
-            
+            attrs = parse_quoted_attributes(line)
             title = metadata.split(',')[-1].strip()
-            
-            group = group_match.group(1) if group_match else "Other"
-            logo = logo_match.group(1) if logo_match else ""
-            tvg_id = id_match.group(1) if id_match else ""
-            
+
+            group = attrs.get('group-title', 'Other')
+            logo = attrs.get('tvg-logo', '')
+            tvg_id = attrs.get('tvg-id', '')
+            tvg_name = attrs.get('tvg-name', '')
+            tvg_chno = attrs.get('tvg-chno', '')
+
+            directives = []
             i += 1
-            while i < len(lines) and (not lines[i].strip() or lines[i].startswith('#')):
+            while i < len(lines) and lines[i].strip().startswith('#'):
+                tag_line = lines[i].strip()
+                if tag_line.startswith(SUPPORTED_INLINE_DIRECTIVES):
+                    directives.append(tag_line)
                 i += 1
             
+            # Skip empty lines
+            while i < len(lines) and not lines[i].strip():
+                i += 1
+                
             if i < len(lines):
                 url = lines[i].strip()
                 if url.startswith('http'):
@@ -47,7 +92,10 @@ def parse_m3u(content):
                         'group': group,
                         'logo': logo,
                         'tvg_id': tvg_id,
-                        'raw_extinf': line
+                        'tvg_name': tvg_name,
+                        'tvg_chno': tvg_chno,
+                        'directives': directives,
+                        'headers': build_header_map(directives),
                     })
         i += 1
     return streams
@@ -65,12 +113,15 @@ def fetch_playlist(source):
 
 def check_url(stream, session):
     """Perform a HEAD request to check if the URL is reachable."""
+    headers = session.headers.copy()
+    headers.update(stream.get('headers', {}))
+
     try:
-        response = session.head(stream['url'], timeout=5, allow_redirects=True)
+        response = session.head(stream['url'], timeout=5, allow_redirects=True, headers=headers)
         if response.status_code >= 200 and response.status_code < 400:
             return stream
         
-        response = session.get(stream['url'], timeout=3, stream=True)
+        response = session.get(stream['url'], timeout=3, stream=True, headers=headers)
         if response.status_code >= 200 and response.status_code < 400:
             return stream
     except:
@@ -113,6 +164,17 @@ def main():
                 unique_streams[url]['logo'] = s['logo']
             if unique_streams[url]['group'] == 'Other' and s['group'] != 'Other':
                 unique_streams[url]['group'] = s['group']
+            if not unique_streams[url].get('tvg_id') and s.get('tvg_id'):
+                unique_streams[url]['tvg_id'] = s['tvg_id']
+            if not unique_streams[url].get('tvg_name') and s.get('tvg_name'):
+                unique_streams[url]['tvg_name'] = s['tvg_name']
+            if not unique_streams[url].get('tvg_chno') and s.get('tvg_chno'):
+                unique_streams[url]['tvg_chno'] = s['tvg_chno']
+            existing_directives = unique_streams[url].setdefault('directives', [])
+            for directive in s.get('directives', []):
+                if directive not in existing_directives:
+                    existing_directives.append(directive)
+            unique_streams[url]['headers'] = build_header_map(existing_directives)
 
     candidate_streams = list(unique_streams.values())
     print(f"Unique entries to verify: {len(candidate_streams)}")
@@ -149,8 +211,12 @@ def main():
             logo_part = f' tvg-logo="{s["logo"]}"' if s["logo"] else ""
             group_part = f' group-title="{s["group"]}"' if s["group"] else ""
             id_part = f' tvg-id="{s["tvg_id"]}"' if s["tvg_id"] else ""
-            
-            f.write(f'#EXTINF:-1{id_part}{logo_part}{group_part},{s["title"]}\n')
+            name_part = f' tvg-name="{s["tvg_name"]}"' if s.get("tvg_name") else ""
+            chno_part = f' tvg-chno="{s["tvg_chno"]}"' if s.get("tvg_chno") else ""
+
+            f.write(f'#EXTINF:-1{id_part}{name_part}{logo_part}{chno_part}{group_part},{s["title"]}\n')
+            for directive in s.get('directives', []):
+                f.write(f'{directive}\n')
             f.write(f'{s["url"]}\n')
 
     print("Success! All steps completed.")

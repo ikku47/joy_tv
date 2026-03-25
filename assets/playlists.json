@@ -5,6 +5,16 @@
     "url": "https://raw.githubusercontent.com/ikku47/joy_tv/main/assets/default_playlist.m3u8"
   },
   {
+    "id": "siamcdn",
+    "name": "Siam CDN",
+    "url": "https://raw.githubusercontent.com/siam3310/cdn-tv/refs/heads/main/siamcdnplaylist.m3u"
+  },
+  {
+    "id": "siamcrichdmini",
+    "name": "Siam CricHDmini",
+    "url": "https://raw.githubusercontent.com/siam3310/crichdmini/refs/heads/main/siamscrichd.m3u"
+  },
+  {
     "id": "iptv-org",
     "name": "IPTV-org (Default)",
     "url": "https://iptv-org.github.io/iptv/index.m3u"
