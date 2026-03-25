@@ -5,6 +5,11 @@
     "url": "https://raw.githubusercontent.com/ikku47/joy_tv/main/assets/default_playlist.m3u8"
   },
   {
+    "id": "umer-zia",
+    "name": "Umer Zia",
+    "url": "http://013tv.com:8080/get.php?username=umer.zia660&password=e7388412&type=m3u_plus"
+  },
+  {
     "id": "siamcdn",
     "name": "Siam CDN",
     "url": "https://raw.githubusercontent.com/siam3310/cdn-tv/refs/heads/main/siamcdnplaylist.m3u"
