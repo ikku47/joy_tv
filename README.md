@@ -1,70 +1,91 @@
-# 📺 Joy TV
+# Joy TV
 
 [![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/dart-%230175C2.svg?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
+[![Dart](https://img.shields.io/badge/Dart-%230175C2.svg?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**Joy TV** is a premium, open-source IPTV application built with Flutter, designed to provide a cinematic viewing experience on both Android TV and mobile devices. With a focus on high performance, sleek UI, and seamless content integration, Joy TV brings your favorite live channels, movies, and series together in one beautiful interface.
+Joy TV is an open-source Flutter IPTV app built for both Android TV and mobile. It combines large live TV playlists, fast remote-friendly navigation, and a fullscreen playback experience with playlist parsing, caching, and automated source generation.
 
 ![Joy TV Hero Mockup](assets/joy-tv.png)
 
-## ✨ Features
+## Highlights
 
-- **🚀 High-Performance Streaming:** Powered by `better_player_plus` for smooth playback and wide codec support.
-- **📱 Cross-Platform Design:** Optimized for both touch-based mobile devices and remote-controlled Android TV.
-- **🎨 Premium AMOLED Theme:** Deep blacks, vibrant violet accents, and glassmorphism elements for a modern, high-end feel.
-- **📺 Live TV & EPG:** Full M3U/M3U8 playlist support with efficient parsing and caching.
-- **🎬 Movies & Series:** Seamless integration with TMDB for rich metadata, posters, and content discovery.
-- **🔍 Smart Search:** Quickly find your favorite channels or movies with an intuitive search interface.
-- **⚡ Built for Speed:** Virtualized lists and grids ensure smooth performance even with thousands of channels.
+- Live TV playback with `better_player_plus`
+- Android TV and D-pad friendly navigation
+- Mobile and TV layouts in one codebase
+- Combined playlist generation through GitHub Actions
+- Support for common IPTV metadata and custom playlist directives
+- Local playlist cache and remote source sync
+- TMDB-backed movie and series discovery screens
 
-## 🛠️ Tech Stack
+## Playlist Support
 
-- **Framework:** [Flutter](https://flutter.dev)
-- **State Management:** [flutter_bloc](https://pub.dev/packages/flutter_bloc)
-- **Video Engine:** [better_player_plus](https://pub.dev/packages/better_player_plus)
-- **Parsing:** [xml](https://pub.dev/packages/xml), [intl](https://pub.dev/packages/intl)
-- **Networking:** [http](https://pub.dev/packages/http), [cached_network_image](https://pub.dev/packages/cached_network_image)
-- **Theming:** Google Fonts (Inter)
+Joy TV now handles more real-world IPTV playlist metadata instead of only basic `#EXTINF` entries.
 
-## 🚀 Getting Started
+Supported tags currently include:
+
+- `#EXTM3U`
+- `#EXTINF`
+- `#EXTVLCOPT`
+- `#KODIPROP`
+- `#EXT-X-APP`
+- `#EXT-X-APTV-TYPE`
+- `#EXT-X-SUB-URL`
+
+The app parser preserves supported directive lines, runtime headers, Kodi-style properties, and APTV metadata. The playlist generator workflow also preserves and re-emits supported directives into the combined playlist.
+
+## Project Structure
+
+- `lib/screens` UI screens for home, playback, filtering, and discovery
+- `lib/widgets` reusable TV and mobile interface components
+- `lib/services` playlist parsing, caching, merging, and stream services
+- `lib/models` app data models including IPTV channels and sources
+- `assets` bundled playlists, source definitions, and images
+- `scripts` local tools for playlist fetching and generation
+- `.github/workflows` automation for scheduled playlist regeneration
+
+## Getting Started
 
 ### Prerequisites
 
-- Flutter SDK (latest stable version)
-- Android Studio / VS Code
-- An Android TV or Emulator for testing TV features
+- Flutter stable SDK
+- Dart SDK matching the Flutter version
+- Android Studio or VS Code
+- An Android TV device, emulator, or mobile device for testing
 
 ### Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/yourusername/joy_tv.git
-    cd joy_tv
-    ```
+```bash
+git clone https://github.com/yourusername/joy_tv.git
+cd joy_tv
+flutter pub get
+flutter run
+```
 
-2.  **Install dependencies:**
-    ```bash
-    flutter pub get
-    ```
+## Playlist Generation
 
-3.  **Run the app:**
-    ```bash
-    flutter run
-    ```
+Joy TV ships with a source list in [`assets/playlists.json`](/Users/eq/Workspace/rnd/joy_tv/assets/playlists.json) and a generated combined playlist in [`assets/default_playlist.m3u8`](/Users/eq/Workspace/rnd/joy_tv/assets/default_playlist.m3u8).
 
-## 📂 Project Structure
+To regenerate the combined playlist locally:
 
-- `lib/screens`: Main UI screens (Home, Player).
-- `lib/services`: Core logic for playlist parsing, caching, and stream handling.
-- `lib/models`: Data models for channels and content.
-- `lib/theme`: Centralized design tokens and premium styling.
-- `assets/`: IPTV playlists and static resources.
+```bash
+python3 scripts/combine_playlists.py
+```
 
-## 📄 License
+You can also use:
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```bash
+bash scripts/run_combine.sh
+```
 
----
+The GitHub workflow in [`playlist-generator.yml`](/Users/eq/Workspace/rnd/joy_tv/.github/workflows/playlist-generator.yml) runs the same generation process on a schedule and prints a directive summary for the generated output.
 
-*Made with ❤️ for the open-source community.*
+## Development Notes
+
+- Parser logic lives in [`m3u_parser.dart`](/Users/eq/Workspace/rnd/joy_tv/lib/services/m3u_parser.dart)
+- Parser tests live in [`m3u_parser_test.dart`](/Users/eq/Workspace/rnd/joy_tv/test/m3u_parser_test.dart)
+- Playlist generation logic lives in [`combine_playlists.py`](/Users/eq/Workspace/rnd/joy_tv/scripts/combine_playlists.py)
+
+## License
+
+This project is licensed under the MIT License.

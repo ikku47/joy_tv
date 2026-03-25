@@ -1,3 +1,29 @@
+# Release Notes - Joy TV v1.4.0
+
+This release focuses on live TV playback stability and much broader playlist compatibility. It fixes the portrait-to-landscape handoff around Live TV playback, improves TV list interaction, and adds support for more real-world IPTV directives in both the app parser and the GitHub playlist generator.
+
+## Live TV Playback
+- Fixed the Live TV transition so the listing screen no longer rotates before the fullscreen player route takes over.
+- Prevented the listing preview player from overlapping audio with the fullscreen channel player during route transitions.
+- Improved fullscreen player lifecycle handling during channel switches and source reloads.
+
+## Android TV Interaction
+- Updated the landscape or Android TV channel list so fullscreen opens on double activation of the same list item instead of a single click.
+- Kept preview behavior on first selection for better remote browsing.
+
+## Playlist Parsing And Generation
+- Added parser support for `#EXTVLCOPT`, `#KODIPROP`, `#EXT-X-APP`, `#EXT-X-APTV-TYPE`, and `#EXT-X-SUB-URL`.
+- Preserved supported custom directives on parsed channels for future playback and metadata handling.
+- Updated the playlist combiner to carry supported directives through into the generated combined playlist instead of dropping them.
+- Added a workflow summary step to report key directive counts after playlist generation.
+
+## Tooling And Docs
+- Expanded parser test coverage for supported directives and comment-style lines.
+- Refreshed the README to better describe the app, playlist support, and generation workflow.
+
+---
+*Version: 1.4.0 (Build 4)*
+
 # Release Notes - Joy TV v1.3.0
 
 This release introduces automated daily playlist updates through GitHub Actions, ensuring our default playlist is always fresh and verified. This update also brings enhancements to our internal streaming engine and discovery visuals.
