@@ -15,11 +15,6 @@
     "url": "https://raw.githubusercontent.com/bugsfreeweb/LiveTVCollector/2baf5e3667a04cbaa7df86ec99d0f82a80f1816d/LiveTV/USA/LiveTV.m3u"
   },
   {
-    "id": "umer-zia",
-    "name": "Umer Zia",
-    "url": "http://013tv.com:8080/get.php?username=umer.zia660&password=e7388412&type=m3u_plus"
-  },
-  {
     "id": "siamcdn",
     "name": "Siam CDN",
     "url": "https://raw.githubusercontent.com/siam3310/cdn-tv/refs/heads/main/siamcdnplaylist.m3u"
