@@ -5,6 +5,16 @@
     "url": "https://raw.githubusercontent.com/ikku47/joy_tv/main/assets/default_playlist.m3u8"
   },
   {
+    "id": "india-live-tv",
+    "name": "India Live TV",
+    "url": "https://raw.githubusercontent.com/bugsfreeweb/LiveTVCollector/2baf5e3667a04cbaa7df86ec99d0f82a80f1816d/LiveTV/India/LiveTV.m3u"
+  },
+  {
+    "id": "usa-live-tv",
+    "name": "USA Live TV",
+    "url": "https://raw.githubusercontent.com/bugsfreeweb/LiveTVCollector/2baf5e3667a04cbaa7df86ec99d0f82a80f1816d/LiveTV/USA/LiveTV.m3u"
+  },
+  {
     "id": "umer-zia",
     "name": "Umer Zia",
     "url": "http://013tv.com:8080/get.php?username=umer.zia660&password=e7388412&type=m3u_plus"
