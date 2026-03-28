@@ -5,6 +5,21 @@
     "url": "https://raw.githubusercontent.com/ikku47/joy_tv/main/assets/default_playlist.m3u8"
   },
   {
+    "id": "doms9-base",
+    "name": "Doms9 Base",
+    "url": "https://raw.githubusercontent.com/doms9/iptv/refs/heads/default/M3U8/base.m3u8"
+  },
+  {
+    "id": "doms9-tv",
+    "name": "Doms9 TV",
+    "url": "https://raw.githubusercontent.com/doms9/iptv/refs/heads/default/M3U8/TV.m3u8"
+  },
+  {
+    "id": "doms9-events",
+    "name": "Doms9 Events",
+    "url": "https://raw.githubusercontent.com/doms9/iptv/refs/heads/default/M3U8/events.m3u8"
+  },
+  {
     "id": "india-live-tv",
     "name": "India Live TV",
     "url": "https://raw.githubusercontent.com/bugsfreeweb/LiveTVCollector/2baf5e3667a04cbaa7df86ec99d0f82a80f1816d/LiveTV/India/LiveTV.m3u"
