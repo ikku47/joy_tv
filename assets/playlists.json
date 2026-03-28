@@ -5,6 +5,12 @@
     "url": "https://raw.githubusercontent.com/ikku47/joy_tv/main/assets/default_playlist.m3u8"
   },
   {
+      "id": "tvlink-all",
+        "name": "TVLink (All Channels)",
+          "url": "https://raw.githubusercontent.com/imShakil/tvlink/refs/heads/main/all.m3u"
+      
+  },
+  {
     "id": "doms9-base",
     "name": "Doms9 Base",
     "url": "https://raw.githubusercontent.com/doms9/iptv/refs/heads/default/M3U8/base.m3u8"
